@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JRMSU Guidance Office</title>
+  <link rel="stylesheet" href="../CSS/landing.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="nav-logo">
+        <img src="https://i.ibb.co/20d2MvxK/FB-IMG-1757506376756.jpg" alt="JRMSU Logo">
+        <div class="nav-title">
+          <h1>JRMSU Dapitan Campus</h1>
+          <p>Jose Rizal Memorial State University</p>
+        </div>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#">About Us</a></li>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#schedule">Appointments</a></li>
+          <li><a href="#" id="profileBtn">Profile</a></li>
+        </ul>
+      </nav>
+      <button id="navToggle" class="nav-toggle">☰</button>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-box">
+      <div class="hero-text">
+        <h1>Your Path to Better Mental Wellness</h1>
+        <p>Request counseling sessions easily and connect with certified guidance counselors who are here to support you.</p>
+        <a href="appointment.html" class="btn-primary">Request Counseling Session</a>
+      </div>
+      <div class="hero-img">
+        <img src="https://i.ibb.co/kg8qBNkJ/In-today-s-fast-paced-technology-driven-society-removebg-preview.png" alt="Mental Wellness Illustration">
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICES -->
+  <section id="services" class="services">
+    <h2>Our Counseling Services</h2>
+    <div class="service-cards">
+      <div class="card">
+        <h3>One-on-One Counseling</h3>
+        <p>Personalized sessions to help you deal with stress, anxiety, and academic challenges.</p>
+      </div>
+      <div class="card">
+        <h3>Group Guidance</h3>
+        <p>Interactive group sessions where students can share experiences and learn coping strategies.</p>
+      </div>
+      <div class="card">
+        <h3>Career/Academic Counseling</h3>
+        <p>Plan your future with the right academic and career advice tailored to your strengths.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section id="schedule" class="schedule">
+    <div class="schedule-box">
+      <div class="schedule-text">
+        <h2>Schedule Your Session</h2>
+        <p>Take the first step towards better emotional health. Select your counselor and book your preferred schedule.</p>
+        <a href="appointment.html" class="btn-secondary">Get Started</a>
+      </div>
+      <div class="schedule-img">
+        <img src="https://i.ibb.co/XfpbYqt9/Freepik-Find-the-right-plan-for-you.jpg" alt="Counseling Illustration">
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-container">
+      <div class="footer-section">
+        <h3>Emergency Contacts</h3>
+        <p>Campus Security: (065) 123-2234</p>
+        <p>Emergency: 911</p>
+      </div>
+
+      <div class="footer-section">
+        <h3>Guidance Office</h3>
+        <p>JRMSU Dapitan Campus</p>
+        <p>Mon–Fri: 8:00 AM – 5:00 PM</p>
+        <p>guidance@jrmsu.edu.ph</p>
+      </div>
+
+      <div class="footer-section">
+        <h3>Support Resources</h3>
+        <p><a href="#">Mental Health Services</a></p>
+        <p><a href="#">Academic Counseling</a></p>
+        <p><a href="#">Career Guidance</a></p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 Jose Rizal Memorial State University - Dapitan Campus. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- LOGIN MODAL -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <div id="profileChooser">
+        <h3>Continue as</h3>
+        <div class="choice-buttons">
+          <button id="chooseStudentBtn" class="btn-primary">Student</button>
+          <button id="chooseAdminBtn" class="btn-secondary">Admin</button>
+        </div>
+      </div>
+
+      <div id="studentForm" style="display:none;">
+        <h2>Student Login</h2>
+        <p>View past appointment history and manage your counseling sessions.</p>
+        <input type="text" id="schoolId" placeholder="Enter School ID" required>
+        <input type="email" id="email" placeholder="Enter Email" required>
+        <button id="loginBtn" class="login-btn">Login</button>
+        <p>𝑀𝑎𝑘𝑒 𝑠𝑢𝑟𝑒 𝑦𝑜𝑢'𝑣𝑒 𝑎𝑙𝑟𝑒𝑎𝑑𝑦 𝑠𝑒𝑡 𝑎𝑛 𝑎𝑝𝑝𝑜𝑖𝑛𝑡𝑚𝑒𝑛𝑡 𝑏𝑒𝑓𝑜𝑟𝑒.</p>
+      </div>
+
+      <div id="adminForm" style="display:none;">
+        <h2>Counselor Login</h2>
+        <div style="text-align:center;margin-bottom:1rem;padding:0.5rem;background:#f3f4f6;border-radius:0.5rem;">
+          <div style="font-weight:500;">Mrs. Kristine Carl B. Lopez</div>
+          <div style="color:#6b7280;font-size:0.875rem;">Guidance Counselor</div>
+        </div>
+        <input type="text" id="adminUser" placeholder="Username (kristine.carl)" required>
+        <input type="password" id="adminPass" placeholder="Password" required>
+        <button id="adminLoginBtn" class="login-btn">Login as Counselor</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../JS/landing.js"></script>
+</body>
+</html>

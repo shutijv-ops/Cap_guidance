@@ -1,0 +1,93 @@
+.calendar-view {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  padding: 1rem;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.calendar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.calendar-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-weight: 500;
+  color: #6b7280;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  min-height: 100px;
+}
+
+.calendar-day.other-month {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.calendar-day.today {
+  background: #f0f9ff;
+  border-color: #3b82f6;
+}
+
+.calendar-day .date {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-event {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.calendar-event.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.calendar-event.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.calendar-event.denied {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.calendar-more {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  cursor: pointer;
+}

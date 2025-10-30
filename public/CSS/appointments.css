@@ -1,0 +1,39 @@
+.tab-active {
+  background-color: #f3f4f6;
+  border-bottom: 2px solid #3b82f6;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.pill {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
+#appointmentFilters {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-size: 0.875rem;
+  color: #4b5563;
+  white-space: nowrap;
+}

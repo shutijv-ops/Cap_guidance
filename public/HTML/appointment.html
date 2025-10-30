@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Counseling Appointment</title>
+  <link rel="stylesheet" href="../CSS/appointment.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-left">
+          <div class="brand-logo">
+            <img src="https://i.ibb.co/20d2MvxK/FB-IMG-1757506376756.jpg" alt="JRMSU Logo">
+          </div>
+          <div class="brand-text">
+            <div class="campus">JRMSU Dapitan Campus</div>
+            <div class="sub">Jose Rizal Memorial State University</div>
+          </div>
+        </div>
+
+        <div class="brand-right">
+          <div class="guidance">Guidance Counseling</div>
+          <div class="system">Appointment System</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page" role="main">
+    <div class="page-inner">
+
+      <!-- Stepper (progress bar with icons inside circles) -->
+      <div class="stepper-wrap" role="navigation" aria-label="Progress">
+        <div class="stepper" style="--progress: 0%;">
+          <div class="progress-track" aria-hidden="true"></div>
+
+          <div class="step-item active" data-step="1" aria-current="step">
+            <div class="circle">
+              <!-- lightning icon for urgency -->
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" fill="#0A2342"/></svg>
+            </div>
+            <div class="label">Urgency Check</div>
+          </div>
+
+          <div class="step-item" data-step="2">
+            <div class="circle">
+              <!-- user icon -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 12a5 5 0 100-10 5 5 0 000 10zM4 20a8 8 0 0116 0" stroke="#0A2342" stroke-width="1" fill="none"/></svg>
+            </div>
+            <div class="label">Personal Info</div>
+          </div>
+
+          <div class="step-item" data-step="3">
+            <div class="circle">
+              <!-- calendar icon -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 11h10M3 7h18M7 3v4M17 3v4" stroke="#0A2342" stroke-width="1.2" fill="none"/></svg>
+            </div>
+            <div class="label">Schedule Selection</div>
+          </div>
+
+          <div class="step-item" data-step="4">
+            <div class="circle">
+              <!-- check icon -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="#0A2342" stroke-width="1.6" fill="none"/></svg>
+            </div>
+            <div class="label">Confirmation</div>
+          </div>
+
+          <div class="step-item" data-step="5">
+            <div class="circle">
+              <!-- flag / done icon -->
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3v18" stroke="#0A2342" stroke-width="1.4"/><path d="M5 7c2-1.5 5-2 6 0 1 2 4 1 6 0v10" stroke="#0A2342" stroke-width="1.4" fill="none"/></svg>
+            </div>
+            <div class="label">Completed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card container -->
+      <div class="card-area">
+
+        <!-- STEP 1 -->
+        <section class="card step active" id="step1" aria-labelledby="step1-heading">
+          <div class="card-header">
+            <h3 id="step1-heading">Step 1: Urgency Assessment</h3>
+            <p class="muted">Please select the urgency level that best describes your situation. This helps us prioritize your appointment.</p>
+          </div>
+
+          <div class="card-body">
+            <div class="urgency-grid">
+              <div class="urgency-option">
+                <input type="radio" id="crisis" name="urgency" value="Crisis">
+                <label for="crisis" tabindex="0">
+                  <div class="u-title"><span class="dot red"></span> Crisis / Emergency</div>
+                  <div class="u-sub">Immediate response required (same day). Examples: suicidal thoughts, severe panic, immediate safety concerns.</div>
+                </label>
+              </div>
+
+              <div class="urgency-option">
+                <input type="radio" id="high" name="urgency" value="High">
+                <label for="high" tabindex="0">
+                  <div class="u-title"><span class="dot orange"></span> High Priority</div>
+                  <div class="u-sub">Response within 24-48 hours. Examples: intense academic stress, interpersonal crisis.</div>
+                </label>
+              </div>
+
+              <div class="urgency-option">
+                <input type="radio" id="medium" name="urgency" value="Medium">
+                <label for="medium" tabindex="0">
+                  <div class="u-title"><span class="dot yellow"></span> Medium Priority</div>
+                  <div class="u-sub">Response within 3-5 days. Examples: adjustment issues, ongoing concerns.</div>
+                </label>
+              </div>
+
+              <div class="urgency-option">
+                <input type="radio" id="low" name="urgency" value="Low">
+                <label for="low" tabindex="0">
+                  <div class="u-title"><span class="dot green"></span> Low Priority</div>
+                  <div class="u-sub">Next available appointment slot. Examples: course planning, general guidance.</div>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-block">
+              <label for="reason">Describe your concern or reason for appointment <span class="req">*</span></label>
+              <textarea id="reason" maxlength="500" placeholder="Please provide details about your situation or what you'd like to discuss..."></textarea>
+
+              <div class="meta-row">
+                <div class="char" id="charCount">0 / 500</div>
+                <div class="meta-actions">
+                  <button class="btn primary" id="toStep2">Next Step ➜</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 2 -->
+        <section class="card step" id="step2" aria-labelledby="step2-heading">
+          <div class="card-header">
+            <h3 id="step2-heading">Step 2: Personal Information</h3>
+            <p class="muted">Provide your student details so we can confirm your registration.</p>
+          </div>
+
+          <div class="card-body">
+            <div class="grid-2">
+              <div class="field">
+                <label>School ID <span class="req">*</span></label>
+                <input id="studentid" type="text" placeholder="e.g. STU-2025-0001">
+              </div>
+              <div class="field">
+                <label>First Name <span class="req">*</span></label>
+                <input id="fname" type="text" placeholder="First name">
+              </div>
+
+              <div class="field">
+                <label>Middle Name</label>
+                <input id="mname" type="text" placeholder="Middle name (optional)">
+              </div>
+              <div class="field">
+                <label>Last Name <span class="req">*</span></label>
+                <input id="lname" type="text" placeholder="Last name">
+              </div>
+
+              <div class="field">
+                <label>Suffix</label>
+                <input id="suffix" type="text" placeholder="Jr., III">
+              </div>
+              <div class="field">
+                <label>Program / Course <span class="req">*</span></label>
+                <select id="course">
+                  <option value="">Select Course</option>
+                  <option>Bachelor of Science in Computer Science</option>
+                  <option>Bachelor of Science in Information Systems</option>
+                  <option>Bachelor of Science in Criminology</option>
+                  <option>Bachelor of Science in Marine Biology</option>
+                  <option>Bachelor of Arts in English Language Studies</option>
+                  <option>Bachelor of Arts in Political Science</option>
+                  <option>Bachelor of Science in Accountancy</option>
+                  <option>BS in Accounting Information System</option>
+                  <option>BS in Internal Auditing</option>
+                  <option>BS in Management Accounting</option>
+                  <option>BS in Business Administration – Financial Management</option>
+                  <option>BS in Business Administration – Marketing Management</option>
+                  <option>BS in Entrepreneurship</option>
+                  <option>BS in Hotel and Restaurant Management</option>
+                  <option>BS in Tourism Management</option>
+                  <option>Bachelor of Elementary Education</option>
+                  <option>Bachelor of Secondary Education – English</option>
+                  <option>Bachelor of Secondary Education – Filipino</option>
+                  <option>Bachelor of Secondary Education – Mathematics</option>
+                  <option>Bachelor of Secondary Education – Science</option>
+                  <option>Bachelor of Secondary Education – Social Studies</option>
+                  <option>Bachelor of Physical Education</option>
+                  <option>Bachelor of Early Childhood Education</option>
+                  <option>Bachelor of Culture and Arts Education</option>
+                  <option>Bachelor of Science in Civil Engineering (major in Structural Engineering)</option>
+                  <option>Bachelor of Science in Computer Engineering</option>
+                  <option>Bachelor of Science in Electrical Engineering</option>
+                  <option>Bachelor of Science in Electronics Engineering</option>
+                  <option>Bachelor of Science in Marine Transportation</option>
+                  <option>Bachelor of Science in Marine Engineering</option>
+                  <option>Bachelor of Science in Nursing</option>
+                  <option>Bachelor of Science in Midwifery</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Year Level <span class="req">*</span></label>
+                <select id="year">
+                  <option value="">Select Year</option>
+                  <option>1st Year</option>
+                  <option>2nd Year</option>
+                  <option>3rd Year</option>
+                  <option>4th Year</option>
+                  <option>5th+ Year</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Contact Number <span class="req">*</span></label>
+                <input id="contact" type="text" placeholder="+63 912 345 6789">
+              </div>
+              <div class="field">
+                <label>Email Address <span class="req">*</span></label>
+                <input id="email" type="email" placeholder="example@student.edu.ph">
+              </div>
+            </div>
+
+            <div class="actions-row">
+              <button class="btn ghost" id="backTo1">← Back</button>
+              <button class="btn primary" id="toStep3">Next Step ➜</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 3: Schedule Selection -->
+        <section class="card step" id="step3" aria-labelledby="step3-heading">
+          <div class="card-header">
+            <h3 id="step3-heading">Step 3: Schedule Selection</h3>
+            <p class="muted">Choose a date and an available time slot. Booked slots are disabled. If your urgency is Crisis, this step will be skipped.</p>
+          </div>
+
+          <div class="card-body schedule-area">
+            <div class="calendar-panel">
+              <div class="calendar-controls">
+                <button id="prevMonth" class="month-btn" aria-label="Previous month">‹</button>
+                <div id="monthLabel" class="month-title">Month</div>
+                <button id="nextMonth" class="month-btn" aria-label="Next month">›</button>
+              </div>
+
+              <div class="weekday-row" aria-hidden="true">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+              </div>
+
+              <div id="calendarGrid" class="calendar-grid" role="grid" aria-label="Calendar"></div>
+            </div>
+
+            <div class="slots-panel">
+              <h4>Available Time Slots</h4>
+              <div class="slot-section">
+                <div class="slot-title">Morning (9:00 AM - 11:00 AM)</div>
+                <div id="morningSlots" class="slot-grid" role="list"></div>
+              </div>
+
+              <div class="slot-section">
+                <div class="slot-title">Afternoon (2:00 PM - 4:00 PM)</div>
+                <div id="afternoonSlots" class="slot-grid" role="list"></div>
+              </div>
+
+              <div class="hint muted small">Click a time slot to select. Booked slots appear disabled.</div>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button class="btn ghost" id="backTo2">← Back</button>
+            <button class="btn primary" id="toStep4">Next Step ➜</button>
+          </div>
+        </section>
+
+        <!-- STEP 4: Confirmation -->
+        <section class="card step" id="step4" aria-labelledby="step4-heading">
+          <div class="card-header">
+            <h3 id="step4-heading">Step 4: Confirmation</h3>
+            <p class="muted">Review your details and confirm. If everything is correct, submit your appointment.</p>
+          </div>
+
+          <div class="card-body">
+            <table class="confirm-table" role="table">
+              <tr><td>Full Name</td><td id="confName"></td></tr>
+              <tr><td>Student ID</td><td id="confID"></td></tr>
+              <tr><td>Program / Course</td><td id="confCourse"></td></tr>
+              <tr><td>Year Level</td><td id="confYear"></td></tr>
+              <tr><td>Contact</td><td id="confContact"></td></tr>
+              <tr><td>Email</td><td id="confEmail"></td></tr>
+              <tr><td>Urgency</td><td id="confUrgency"></td></tr>
+              <tr><td>Preferred Date</td><td id="confDate"></td></tr>
+              <tr><td>Time Slot</td><td id="confTime"></td></tr>
+              <tr><td>Concern / Reason</td><td id="confReason"></td></tr>
+            </table>
+
+            <div class="checkbox-row">
+              <input id="agree" type="checkbox"><label for="agree"> I agree to the terms and conditions</label>
+            </div>
+
+            <div class="actions-row">
+              <button class="btn ghost" id="backTo3">← Back</button>
+              <button class="btn primary" id="submitBtn">Submit Appointment</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- STEP 5: Submitted -->
+        <section class="card step" id="step5" aria-labelledby="step5-heading">
+          <div class="card-header">
+            <h3 id="step5-heading">Step 5: Appointment Submitted</h3>
+            <p class="muted">Thank you — your appointment request has been submitted.</p>
+          </div>
+
+          <div class="card-body success">
+            <div class="success-block">
+              <div class="big">✅</div>
+              <div class="summary">
+                <p>Reference Number: <strong id="refNumber"></strong></p>
+                <p id="expectedTime"></p>
+                <p id="submittedSummary"></p>
+              </div>
+              <div class="actions-row">
+                <button class="btn primary" id="goHome">Go to Homepage</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div> <!-- card-area -->
+    </div> <!-- page-inner -->
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <h4>Emergency Contacts</h4>
+        <p>Campus Security: (065) 123-2234<br>Emergency: 911</p>
+      </div>
+      <div class="footer-col">
+        <h4>Guidance Office</h4>
+        <p>JRMSU Dapitan Campus<br>Mon-Fri: 8:00 AM - 5:00 PM<br>guidance@jrmsu.edu.ph</p>
+      </div>
+      <div class="footer-col">
+        <h4>Support Resources</h4>
+        <ul>
+          <li>Mental Health Services</li>
+          <li>Academic Counseling</li>
+          <li>Career Guidance</li>
+        </ul>
+      </div>
+    </div>
+  <div class="footer-bottom">© <span id="footerYear"></span> Jose Rizal Memorial State University - Dapitan Campus. All rights reserved.</div>
+  </footer>
+
+  <script src="../JS/appointment.js"></script>
+</body>
+</html>
