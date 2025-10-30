@@ -1,3 +1,45 @@
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal[style*="display:none"] { display: none !important; }
+.modal-content {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--soft-shadow);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  padding: 1.2rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-header h3 { font-size: 1.2rem; font-weight: 600; }
+.close-modal {
+  background: none; border: none; font-size: 1.5rem; color: var(--muted); cursor: pointer;
+}
+.modal-body { padding: 1.5rem; }
+.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; }
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+.detail-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.detail-group.full-width { grid-column: 1 / -1; }
+.detail-group label { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+.reason-text { padding: 1rem; background: #f9fafb; border-radius: 0.5rem; white-space: pre-wrap; line-height: 1.5; }
 /* style.css — modern admin dashboard (SPA) */
 :root {
   --bg: #f6f8fb;

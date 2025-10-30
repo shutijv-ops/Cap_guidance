@@ -436,11 +436,34 @@ function populateAppointmentsTable(filter = currentFilter) {
     const tdPriority = document.createElement('td'); tdPriority.appendChild(createBadge(a.urgency || 'Low')); tr.appendChild(tdPriority);
     const tdStatus = document.createElement('td'); tdStatus.appendChild(createStatus(a.status || 'Pending')); tr.appendChild(tdStatus);
 
-    const tdAction = document.createElement('td'); tdAction.className='actions';
-    const viewBtn = document.createElement('button'); viewBtn.className='action-btn'; viewBtn.title='View'; viewBtn.innerHTML='👁️';
-    viewBtn.onclick = ()=> alert('Open appointment details for ' + (a.fname || '') + ' ' + (a.lname || ''));
-    tdAction.appendChild(viewBtn);
-    tr.appendChild(tdAction);
+  const tdAction = document.createElement('td'); tdAction.className='actions';
+  const viewBtn = document.createElement('button'); viewBtn.className='action-btn'; viewBtn.title='View'; viewBtn.innerHTML='👁️';
+  viewBtn.onclick = function() { showAppointmentModal(a); };
+  tdAction.appendChild(viewBtn);
+  tr.appendChild(tdAction);
+// Modal logic for appointment details
+function showAppointmentModal(appt) {
+  if (!appt) return;
+  document.getElementById('modalStudentName').textContent = `${appt.fname || ''} ${appt.mname ? appt.mname + ' ' : ''}${appt.lname || ''}${appt.suffix ? ' ' + appt.suffix : ''}`;
+  document.getElementById('modalStudentId').textContent = appt.studentid || '-';
+  document.getElementById('modalCourseYear').textContent = `${appt.course || '-'} - ${appt.year || '-'}`;
+  document.getElementById('modalContact').textContent = appt.contact || '-';
+  document.getElementById('modalEmail').textContent = appt.email || '-';
+  document.getElementById('modalDateTime').textContent = appt.date ? `${appt.date} ${appt.time || ''}` : '-';
+  document.getElementById('modalUrgency').textContent = appt.urgency || '-';
+  document.getElementById('modalReason').textContent = appt.reason || '-';
+  document.getElementById('appointmentDetailsModal').style.display = 'flex';
+}
+
+function closeAppointmentModal() {
+  document.getElementById('appointmentDetailsModal').style.display = 'none';
+}
+
+// Attach close button listeners immediately (script is loaded after modal HTML)
+var closeBtn1 = document.getElementById('closeAppointmentModalBtn');
+var closeBtn2 = document.getElementById('closeAppointmentModalBtn2');
+if (closeBtn1) closeBtn1.onclick = closeAppointmentModal;
+if (closeBtn2) closeBtn2.onclick = closeAppointmentModal;
 
     tbody.appendChild(tr);
   });
@@ -529,16 +552,22 @@ async function loadRemoteData(){
     const docs = data.appointments || [];
     // map to local appointments structure
     appointments = docs.map(d => ({
+      _id: d._id,
       ref: d.refNumber,
       studentid: d.studentid,
       fname: d.fname,
+      mname: d.mname,
       lname: d.lname,
+      suffix: d.suffix,
       course: d.course,
       date: d.date,
       time: d.time,
       urgency: d.urgency,
       status: d.status || 'Pending',
       counselor: d.counselor || null,
+      contact: d.contact || '',
+      email: d.email || '',
+      reason: d.reason || '',
       createdAt: d.createdAt
     }));
 
@@ -663,6 +692,27 @@ function prependAppointment(appt){
     const existing = document.querySelector(`#appointmentsTable tbody tr[data-ref="${ref}"]`);
     if(existing) return existing;
   }
+  // normalize and add to local appointments array so modal/data functions can access it
+  const norm = {
+    _id: appt._id,
+    ref: appt.refNumber || appt.ref || '',
+    studentid: appt.studentid,
+    fname: appt.fname,
+    mname: appt.mname,
+    lname: appt.lname,
+    suffix: appt.suffix,
+    course: appt.course,
+    date: appt.date,
+    time: appt.time,
+    urgency: appt.urgency,
+    status: appt.status,
+    counselor: appt.counselor,
+    contact: appt.contact || '',
+    email: appt.email || '',
+    reason: appt.reason || '',
+    createdAt: appt.createdAt
+  };
+  appointments.unshift(norm);
   const tr = document.createElement('tr');
   if(ref) tr.dataset.ref = ref;
   tr.innerHTML = `<td><input type="checkbox" /></td>
@@ -672,8 +722,18 @@ function prependAppointment(appt){
     <td>Unassigned</td>
     <td></td>
     <td>${appt.urgency || 'Low'}</td>
-    <td><button class="action-btn">👁️</button></td>`;
+    <td><button class="action-btn view-appt-btn" data-ref="${ref}">👁️</button></td>`;
   tbody.insertBefore(tr, tbody.firstChild);
+  // attach click handler to the newly created view button
+  const btn = tr.querySelector('.view-appt-btn');
+  if(btn){
+    btn.addEventListener('click', () => {
+      // find normalized appointment in local appointments by ref or studentid
+      const identifier = ref || appt.studentid;
+      const found = appointments.find(x => x.ref === identifier || x._id === identifier || x.studentid === identifier);
+      if(found) showAppointmentModal(found);
+    });
+  }
 }
 
 /* ---------- Admin actions (approve/deny/assign) ---------- */

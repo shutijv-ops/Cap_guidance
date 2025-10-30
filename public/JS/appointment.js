@@ -82,6 +82,38 @@
   const pad = n => (n < 10 ? '0'+n : n);
   const toKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const formatDateLong = d => d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+  
+  // Validate Philippine phone number format: 09XXXXXXXXX (11 digits)
+  function isValidPhoneNumber(phone) {
+    const phoneRegex = /^09\d{9}$/;
+    return phoneRegex.test(phone);
+  }
+
+  // Validate Gmail address
+  function isValidGmail(email) {
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    return gmailRegex.test(email);
+  }
+
+  // Return the earliest allowed date for scheduling based on urgency.
+  // For 'Crisis' allow today. For other urgencies require at least 3 days from today.
+  function getMinAllowedDateForUrgency(urgency){
+    const today = new Date();
+    const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if(String(urgency).toLowerCase() === 'crisis') return base;
+    // require 3 days gap: earliest allowed = today + 3 days
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate() + 3);
+  }
+
+  function isDateAllowedByUrgency(dateObj, urgency){
+    if(!dateObj) return false;
+    const min = getMinAllowedDateForUrgency(urgency);
+    const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+    // Check if it's weekend (0 = Sunday, 6 = Saturday)
+    const day = d.getDay();
+    if(day === 0 || day === 6) return false;
+    return d >= min;
+  }
 
   /* ------------------- Step navigation ------------------- */
   function showStep(n){
@@ -120,6 +152,18 @@
       alert('Please complete required fields in Step 2.');
       return;
     }
+    
+    // Validate phone number format
+    if(!isValidPhoneNumber(contact.value.trim())) {
+      alert('Please enter a valid Philippine phone number starting with 09 and containing 11 digits (e.g., 09123456789)');
+      return;
+    }
+    
+    // Validate Gmail address
+    if(!isValidGmail(email.value.trim())) {
+      alert('Please use a valid Gmail address.');
+      return;
+    }
     selectedUrgency = selectedUrgency || getSelectedUrgency();
     if(selectedUrgency === 'Crisis'){
       // skip schedule and go to confirmation
@@ -145,6 +189,11 @@
       alert('Please choose a date and time slot.');
       return;
     }
+    // ensure chosen date meets urgency-based minimum
+    if(selectedUrgency !== 'Crisis' && !isDateAllowedByUrgency(selectedDate, selectedUrgency)){
+      alert('Selected date is too soon. For non-crisis requests scheduling must be at least 3 days from today.');
+      return;
+    }
     showStep(4);
     fillConfirmation();
   });
@@ -153,6 +202,10 @@
   submitBtn.addEventListener('click', async () => {
     if(!agree.checked){ alert('Please agree to terms and conditions.'); return; }
     if(selectedUrgency !== 'Crisis' && (!selectedDate || !selectedTime)){ alert('Please select schedule.'); return; }
+    if(selectedUrgency !== 'Crisis' && !isDateAllowedByUrgency(selectedDate, selectedUrgency)){
+      alert('Selected date is too soon. For non-crisis requests scheduling must be at least 3 days from today.');
+      return;
+    }
 
     // prepare payload
     const payload = {
@@ -238,12 +291,19 @@
     // blanks
     for(let i=0;i<startDay;i++){ const blank = document.createElement('div'); calendarGrid.appendChild(blank); }
     const today = new Date();
+    // compute minimum allowed date for the current urgency (fallback to selectedUrgency or radio)
+    const minAllowed = getMinAllowedDateForUrgency(selectedUrgency || getSelectedUrgency());
     for(let d=1; d<=days; d++){
       const dt = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), d);
       const btn = document.createElement('button');
       btn.className = 'day';
       btn.textContent = d;
+      // always disable past dates
       if(dt < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
+        btn.classList.add('disabled');
+        btn.disabled = true;
+      } else if(!isDateAllowedByUrgency(dt, selectedUrgency || getSelectedUrgency())){
+        // disable dates that are before the minimum allowed for the selected urgency
         btn.classList.add('disabled');
         btn.disabled = true;
       } else {
@@ -310,8 +370,10 @@ function setProgress(current){
     // default to today if none selected
     const t = new Date();
     if(!selectedDate) {
-      selectedDate = new Date(t.getFullYear(), t.getMonth(), t.getDate());
-      // highlight today's button if present
+      // default to the minimum allowed date for this urgency
+      const minAllowed = getMinAllowedDateForUrgency(selectedUrgency || getSelectedUrgency());
+      selectedDate = minAllowed;
+      // highlight the matching day button if present
       Array.from(calendarGrid.querySelectorAll('.day')).forEach(b => {
         if(Number(b.textContent) === selectedDate.getDate()) b.classList.add('selected'); else b.classList.remove('selected');
       });
@@ -349,7 +411,7 @@ function setProgress(current){
       const key = toKey(d);
       const arr = [];
       if(d.getDate() % 2 === 0) arr.push(morningTimes[1], afternoonTimes[2]);
-      if(d.getDate() % 3 === 0) arr.push(morningTimes[3]);
+      if(d.getDate() % 3 === 0) arr.push(morningTimes[2]);
       bookedSlotsByDate[key] = Array.from(new Set(arr));
     }
   }
@@ -376,6 +438,11 @@ function setProgress(current){
   // keep selectedUrgency synced when changed
   Array.from(urgencyRadios).forEach(r => r.addEventListener('change', ()=> {
     selectedUrgency = getSelectedUr();
+    // reset any previously selected date/time and re-render calendar/time slots
+    selectedDate = null;
+    selectedTime = null;
+    renderCalendar();
+    renderTimeSlots();
   }));
 
   // utility get selected urgency

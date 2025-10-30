@@ -390,5 +390,32 @@
   <script src="../JS/calendar.js"></script>
   <script src="../JS/view_toggle.js"></script>
   <script src="../JS/admin_dashboard.js"></script>
+</section>
+
+<!-- Appointment Details Modal -->
+<div id="appointmentDetailsModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Appointment Details</h3>
+      <button class="close-modal" id="closeAppointmentModalBtn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="details-grid">
+        <div class="detail-group"><label>Student Name:</label><div id="modalStudentName">-</div></div>
+        <div class="detail-group"><label>Student ID:</label><div id="modalStudentId">-</div></div>
+        <div class="detail-group"><label>Course & Year:</label><div id="modalCourseYear">-</div></div>
+        <div class="detail-group"><label>Contact:</label><div id="modalContact">-</div></div>
+        <div class="detail-group"><label>Email:</label><div id="modalEmail">-</div></div>
+        <div class="detail-group"><label>Date & Time:</label><div id="modalDateTime">-</div></div>
+        <div class="detail-group"><label>Urgency:</label><div id="modalUrgency">-</div></div>
+        <div class="detail-group full-width"><label>Reason for Counseling:</label><div id="modalReason" class="reason-text">-</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" id="closeAppointmentModalBtn2">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
