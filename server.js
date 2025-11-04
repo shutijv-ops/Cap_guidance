@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
+const Counselor = require('./models/counselors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,19 @@ app.get('/', (req, res) => {
 
 // Simple health
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Get appointment details by reference number
+app.get('/api/appointment/:ref', async (req, res) => {
+  try {
+    const appointment = await mongoose.model('Appointment').findOne({ refNumber: req.params.ref });
+    if (!appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    res.json(appointment);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Helper functions for data formatting
 function capitalizeWords(str) {
@@ -107,9 +121,14 @@ const Appointment = mongoose.model('Appointment', appointmentSchema);
 const sseClients = new Set();
 
 function sendSseEvent(name, data){
-  const payload = `event: ${name}\n` + `data: ${JSON.stringify(data)}\n\n`;
-  for(const res of sseClients){
-    try{ res.write(payload); }catch(e){ /* ignore individual client errors */ }
+  // build SSE payload without template literals to avoid parser issues
+  const payload = 'event: ' + name + '\n' + 'data: ' + JSON.stringify(data) + '\n\n';
+  for (const res of sseClients) {
+    try {
+      res.write(payload);
+    } catch (e) {
+      // ignore individual client errors
+    }
   }
 }
 
@@ -135,6 +154,51 @@ app.post('/api/admin/login', (req, res) => {
     });
   }
   return res.status(401).json({ error: 'invalid credentials' });
+});
+
+// Counselor API endpoints
+app.get('/api/counselors', async (req, res) => {
+  try {
+    const counselors = await Counselor.find().select('-password');
+    res.json(counselors);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch counselors' });
+  }
+});
+
+app.post('/api/counselors', async (req, res) => {
+  try {
+    const { title, firstName, middleName, lastName, email, username, password, role } = req.body;
+    const counselor = new Counselor({
+      title, firstName, middleName, lastName, email, username, password, role
+    });
+    await counselor.save();
+    const { password: _, ...counselorData } = counselor.toObject();
+    res.status(201).json(counselorData);
+  } catch (error) {
+    if (error.code === 11000) {
+      res.status(400).json({ error: 'Username or email already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create counselor' });
+    }
+  }
+});
+
+app.put('/api/counselors/:id', async (req, res) => {
+  try {
+    const { title, firstName, middleName, lastName, email, status } = req.body;
+    const counselor = await Counselor.findByIdAndUpdate(
+      req.params.id,
+      { title, firstName, middleName, lastName, email, status },
+      { new: true }
+    ).select('-password');
+    if (!counselor) {
+      return res.status(404).json({ error: 'Counselor not found' });
+    }
+    res.json(counselor);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update counselor' });
+  }
 });
 
 // Get counselor info
@@ -258,6 +322,8 @@ app.put('/api/appointments/:ref', async (req, res) => {
     const formattedData = formatAppointmentData(body);
     const update = {};
     if(body.status) update.status = body.status;
+    if(body.date) update.date = formattedData.date || body.date;
+    if(body.time) update.time = formattedData.time || body.time;
     if(body.counselor) update.counselor = body.counselor;
     if(Object.keys(update).length === 0) return res.status(400).json({ error: 'nothing to update' });
     const appt = await Appointment.findOneAndUpdate({ refNumber: ref }, { $set: update }, { new: true }).lean();

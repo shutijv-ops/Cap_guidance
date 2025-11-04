@@ -8,6 +8,7 @@
   <link href="../CSS/appointments.css" rel="stylesheet" />
   <link href="../CSS/calendar.css" rel="stylesheet" />
   <link href="../CSS/list_view.css" rel="stylesheet" />
+  <link href="../CSS/settings.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -47,7 +48,8 @@
           <button id="toggleSidebar" class="hamburger" aria-label="Toggle sidebar">☰</button>
           <div class="search">
             <svg class="search-icon" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35" stroke="#9aa3b2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="11" cy="11" r="6" stroke="#9aa3b2" stroke-width="1.5" fill="none"/></svg>
-            <input id="globalSearch" placeholder="Search..." />
+            <input id="globalSearch" placeholder="Search..." aria-label="Search" />
+            <button id="globalSearchClear" class="search-clear" title="Clear search">×</button>
           </div>
         </div>
 
@@ -78,7 +80,6 @@
               <div class="card-left">
                 <div class="stat-title">Total Appointments</div>
                 <div class="stat-num" id="totalAppointments">—</div>
-                <div class="stat-sub">+12% from last month</div>
               </div>
               <div class="card-right">
                 <div class="icon-round blue"><svg viewBox="0 0 24 24"><path d="M8 7h8v6H8z" fill="#fff"/></svg></div>
@@ -89,7 +90,6 @@
               <div class="card-left">
                 <div class="stat-title">Pending Requests</div>
                 <div class="stat-num" id="pendingRequests">—</div>
-                <div class="stat-sub">5 high priority</div>
               </div>
               <div class="card-right">
                 <div class="icon-round orange"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
@@ -100,7 +100,6 @@
               <div class="card-left">
                 <div class="stat-title">Active Students</div>
                 <div class="stat-num" id="activeStudents">—</div>
-                <div class="stat-sub">+85 this week</div>
               </div>
               <div class="card-right">
                 <div class="icon-round green"><svg viewBox="0 0 24 24"><path d="M12 12c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3z" fill="#fff"/></svg></div>
@@ -111,7 +110,6 @@
               <div class="card-left">
                 <div class="stat-title">Counselors</div>
                 <div class="stat-num" id="counselors">—</div>
-                <div class="stat-sub">2 on leave</div>
               </div>
               <div class="card-right">
                 <div class="icon-round purple"><svg viewBox="0 0 24 24"><path d="M12 12c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3z" fill="#fff"/></svg></div>
@@ -211,13 +209,8 @@
               <!-- Calendar will be rendered here -->
             </div>
             <div class="table-footer">
-              <div>Showing 1-20 of 248 appointments</div>
-              <div class="pagination">
-                <button class="btn ghost">Previous</button>
-                <button class="btn primary small">1</button>
-                <button class="btn ghost">2</button>
-                <button class="btn ghost">Next</button>
-              </div>
+              <div id="appointmentsSummary">Showing 0-0 of 0 appointments</div>
+              <div class="pagination" id="appointmentsPagination"><!-- JS will render pagination here --></div>
             </div>
           </div>
         </div>
@@ -260,7 +253,7 @@
                 <div class="stat-num" id="highPriorityCount">—</div>
                 <div class="stat-sub">Requiring attention</div>
               </div>
-              <div class="card-right"><div class="icon-round purple">⚠️</div></div>
+              <div class="card-right"><div class="icon-round purple">⚠️ </div></div>
             </div>
           </div>
 
@@ -277,14 +270,11 @@
               <table class="requests-table" id="studentsTable">
                 <thead>
                   <tr>
-                    <th><input id="selectAllStudents" type="checkbox" /></th>
                     <th>Student</th>
                     <th>Department</th>
                     <th>Year Level</th>
-                    <th>Counseling Status</th>
                     <th>Last Appointment</th>
                     <th>Sessions</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,13 +284,8 @@
             </div>
 
             <div class="table-footer">
-              <div>Showing 1 to 5 of 1,842 students</div>
-              <div class="pagination">
-                <button class="btn ghost">Previous</button>
-                <button class="btn primary small">1</button>
-                <button class="btn ghost">2</button>
-                <button class="btn ghost">Next</button>
-              </div>
+              <div id="studentsSummary">Showing 0-0 of 0 students</div>
+              <div class="pagination" id="studentsPagination"><!-- JS will render pagination here --></div>
             </div>
           </div>
         </div>
@@ -404,6 +389,71 @@
                 <button class="btn primary">Save Changes</button>
                 <button class="btn ghost">Reset</button>
               </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Add New Counselor</h3>
+            <form id="addCounselorForm" style="display:flex;gap:12px;flex-direction:column;margin-top:12px;">
+              <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;">
+                <label>
+                  Title
+                  <select name="title" required>
+                    <option value="">Select</option>
+                    <option value="Mr.">Mr.</option>
+                    <option value="Mrs.">Mrs.</option>
+                    <option value="Ms.">Ms.</option>
+                    <option value="Dr.">Dr.</option>
+                  </select>
+                </label>
+                <label>
+                  First Name
+                  <input type="text" name="firstName" required />
+                </label>
+                <label>
+                  Last Name
+                  <input type="text" name="lastName" required />
+                </label>
+              </div>
+              <label>
+                Middle Name (optional)
+                <input type="text" name="middleName" />
+              </label>
+              <label>
+                Email
+                <input type="email" name="email" required />
+              </label>
+              <label>
+                Username
+                <input type="text" name="username" required />
+              </label>
+              <label>
+                Password
+                <input type="password" name="password" required />
+              </label>
+              <div style="display:flex;gap:8px;">
+                <button type="submit" class="btn primary">Add Counselor</button>
+                <button type="reset" class="btn ghost">Reset</button>
+              </div>
+            </form>
+          </div>
+          
+          <div class="panel">
+            <h3>Manage Counselors</h3>
+            <div class="table-wrap">
+              <table class="requests-table" id="settingsCounselorsTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Will be populated by JS -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

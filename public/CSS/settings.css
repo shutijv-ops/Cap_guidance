@@ -1,0 +1,110 @@
+/* Settings styles */
+.panel {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
+}
+
+.panel h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+form label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+}
+
+form input[type="text"],
+form input[type="email"],
+form input[type="password"],
+form select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-top: 4px;
+  font-size: 0.875rem;
+}
+
+form input:focus,
+form select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  ring: 2px solid rgba(79, 70, 229, 0.2);
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.action-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+#settingsCounselorsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+#settingsCounselorsTable th {
+  text-align: left;
+  padding: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+#settingsCounselorsTable td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+#settingsCounselorsTable tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Reschedule modal styles */
+.reschedule-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+.reschedule-modal {
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  width: 360px;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+.reschedule-modal h3 { margin: 0 0 8px 0; font-size: 1.05rem; }
+.reschedule-modal label { font-size: 0.9rem; color: #374151; display:block; }
+.reschedule-modal input[type="date"], .reschedule-modal input[type="time"] {
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}

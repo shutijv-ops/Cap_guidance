@@ -230,6 +230,23 @@ body::before {
   opacity: 0.9;
 }
 
+.search .search-clear {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  color: #6b7280;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.search .search-clear:hover {
+  background: rgba(99,102,241,0.06);
+  color: var(--accent-1);
+}
+
 /* Profile settings */
 .right {
   display: flex;
