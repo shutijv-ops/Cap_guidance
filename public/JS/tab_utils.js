@@ -1,6 +1,6 @@
 function setActiveTab(filter) {
   // Remove active class from all tabs
-  const tabs = ['tabAllAppts', 'tabUpcoming', 'tabPending', 'tabPast'];
+  const tabs = ['tabAllAppts', 'tabUpcoming', 'tabPending', 'tabPast', 'tabMissed'];
   tabs.forEach(id => {
     document.getElementById(id)?.classList.remove('tab-active');
   });
