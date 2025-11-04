@@ -281,3 +281,91 @@ app.get('/api/appointments', async (req, res) => {
     res.status(500).json({ error: 'internal' });
   }
 });
+
+// Reports aggregation endpoint: monthly counts and urgency breakdown
+// Query params:
+//  - year (number) default: current year
+//  - from, to (yyyy-mm-dd) optional date range
+//  - counselor optional
+//  - priority optional (urgency filter)
+app.get('/api/reports/monthly', async (req, res) => {
+  const year = parseInt(req.query.year) || new Date().getFullYear();
+  const from = req.query.from; // yyyy-mm-dd
+  const to = req.query.to;
+  const counselor = req.query.counselor;
+  const priority = req.query.priority; // urgency
+
+  try{
+    // Build aggregation pipeline
+    const pipeline = [];
+
+    // Parse date string into actual date for grouping
+    pipeline.push({
+      $addFields: {
+        parsedDate: { $dateFromString: { dateString: '$date' } }
+      }
+    });
+
+    const match = { $and: [] };
+
+    // limit to requested year by parsedDate's year
+    match.$and.push({ $expr: { $eq: [{ $year: '$parsedDate' }, year] } });
+
+    if(from){
+      match.$and.push({ $expr: { $gte: ['$parsedDate', { $dateFromString: { dateString: from } }] } });
+    }
+    if(to){
+      match.$and.push({ $expr: { $lte: ['$parsedDate', { $dateFromString: { dateString: to } }] } });
+    }
+    if(counselor && counselor !== 'All Counselors'){
+      match.$and.push({ counselor: counselor });
+    }
+    if(priority && priority !== 'All Priorities'){
+      match.$and.push({ urgency: priority });
+    }
+
+    if(match.$and.length > 0){ pipeline.push({ $match: match }); }
+
+    // Group by month number
+    pipeline.push({
+      $group: {
+        _id: { $month: '$parsedDate' },
+        total: { $sum: 1 },
+        crisis: { $sum: { $cond: [{ $eq: ['$urgency', 'Crisis'] }, 1, 0] } },
+        high: { $sum: { $cond: [{ $eq: ['$urgency', 'High'] }, 1, 0] } },
+        medium: { $sum: { $cond: [{ $eq: ['$urgency', 'Medium'] }, 1, 0] } },
+        low: { $sum: { $cond: [{ $eq: ['$urgency', 'Low'] }, 1, 0] } }
+      }
+    });
+
+    // Sort by month
+    pipeline.push({ $sort: { '_id': 1 } });
+
+    const results = await Appointment.aggregate(pipeline).allowDiskUse(true);
+
+    // Build months array for all 12 months with zeros where missing
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: i, // 0-based
+      label: new Date(year, i).toLocaleString('default', { month: 'short' }),
+      total: 0,
+      urgencies: { Crisis: 0, High: 0, Medium: 0, Low: 0 }
+    }));
+
+    results.forEach(r => {
+      // r._id is 1-12
+      const idx = (r._id || 1) - 1;
+      if(idx >= 0 && idx < 12){
+        months[idx].total = r.total || 0;
+        months[idx].urgencies.Crisis = r.crisis || 0;
+        months[idx].urgencies.High = r.high || 0;
+        months[idx].urgencies.Medium = r.medium || 0;
+        months[idx].urgencies.Low = r.low || 0;
+      }
+    });
+
+    res.json({ year, months });
+  }catch(err){
+    console.error('Failed to aggregate monthly reports', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});

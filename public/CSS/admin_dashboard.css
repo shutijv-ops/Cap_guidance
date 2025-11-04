@@ -392,6 +392,20 @@ body::before {
   min-height: 260px; /* slightly taller narrow panels to match visual weight */
 }
 
+/* Chart canvas responsiveness */
+.chart-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  /* Ensure report charts stack on narrow screens */
+  .panel > .card, .panel > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* tables */
 .table-wrap {
   overflow: auto;

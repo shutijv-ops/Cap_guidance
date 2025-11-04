@@ -348,19 +348,45 @@
           </div>
 
           <div class="panel">
-            <h3>Activity Summary</h3>
-            <p class="text-muted">Use filters to generate time-based or counselor-specific reports.</p>
-            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
-              <div class="card" style="min-width:220px;">
-                <div class="stat-title">Appointments This Month</div>
-                <div class="stat-num">248</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div>
+                  <h3 style="margin:0">Reports Overview</h3>
+                  <p class="text-muted" style="margin:6px 0 0">Monthly appointments and urgency trends. Use filters above to scope the data.</p>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;">
+                  <div class="card" style="min-width:180px;padding:10px 14px;">
+                    <div class="stat-title">This Month</div>
+                    <div class="stat-num" id="reportMonthCount">—</div>
+                  </div>
+                  <div class="card" style="min-width:180px;padding:10px 14px;">
+                    <div class="stat-title">Avg. Sessions / Month</div>
+                    <div class="stat-num" id="reportAvgSession">—</div>
+                  </div>
+                </div>
               </div>
-              <div class="card" style="min-width:220px;">
-                <div class="stat-title">Avg. Session / Student</div>
-                <div class="stat-num">3.4</div>
+
+              <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="card" style="padding:12px; display:flex; flex-direction:column;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-weight:600;">Monthly Appointments</div>
+                    <div class="text-muted" style="font-size:13px">Last 12 months</div>
+                  </div>
+                  <div style="height:260px; margin-top:12px;">
+                    <canvas id="monthlyBarChart" class="chart-canvas" aria-label="Monthly appointments bar chart"></canvas>
+                  </div>
+                </div>
+
+                <div class="card" style="padding:12px; display:flex; flex-direction:column;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-weight:600;">Urgency Trend</div>
+                    <div class="text-muted" style="font-size:13px">Crisis · High · Medium · Low</div>
+                  </div>
+                  <div style="height:260px; margin-top:12px;">
+                    <canvas id="urgencyLineChart" class="chart-canvas" aria-label="Urgency trend line chart"></canvas>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         </div>
 
         <!-- ===== Settings View ===== -->
@@ -390,6 +416,8 @@
   <script src="../JS/calendar.js"></script>
   <script src="../JS/view_toggle.js"></script>
   <script src="../JS/admin_dashboard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="../JS/reports.js"></script>
 </section>
 
 <!-- Appointment Details Modal -->
