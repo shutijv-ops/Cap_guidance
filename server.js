@@ -95,8 +95,38 @@ async function sendAppointmentEmail(appt, type = 'approved') {
 
     await sgMail.send(msg);
     console.log('Approval email sent to', to);
+    try {
+      // record notification in DB
+      if (typeof Notification !== 'undefined') {
+        const notif = await Notification.create({
+          type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+          refNumber: appt.refNumber,
+          email: to,
+          status: 'sent',
+          message: subject
+        });
+        // broadcast notification over SSE so admin UI can update in realtime
+        try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
+      }
+    } catch (dbErr) {
+      console.error('Failed to create notification record (sent):', dbErr);
+    }
   } catch (err) {
     console.error('Failed to send approval email:', err?.response?.body?.errors || err);
+    try {
+      if (typeof Notification !== 'undefined') {
+        const notif = await Notification.create({
+          type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+          refNumber: appt.refNumber,
+          email: appt.email,
+          status: 'failed',
+          message: (err && err.message) ? err.message : JSON.stringify(err)
+        });
+        try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
+      }
+    } catch (dbErr2) {
+      console.error('Failed to create notification record (failed):', dbErr2);
+    }
   }
 }
 
@@ -130,6 +160,17 @@ const approvedScheduleSchema = new mongoose.Schema({
 });
 const ApprovedSchedule = mongoose.model('ApprovedSchedule', approvedScheduleSchema);
 
+// Notification schema for admin (tracks email send success/failure)
+const notificationSchema = new mongoose.Schema({
+  type: { type: String, enum: ['approved','rescheduled','system','other'], default: 'other' },
+  refNumber: String,
+  email: String,
+  status: { type: String, enum: ['sent','failed'], required: true },
+  message: String,
+  createdAt: { type: Date, default: Date.now }
+});
+const Notification = mongoose.model('Notification', notificationSchema);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -158,7 +199,7 @@ mongoose.connect(MONGODB_URI, {
         time: schedule.time
       });
 
-      mailSettings: { sandboxMode: { enable: true } }      if (!existingSchedule) {
+      if (!existingSchedule) {
         const newSchedule = new ApprovedSchedule(schedule);
         await newSchedule.save();
         console.log(`Added test approved schedule for ${schedule.date} at ${schedule.time}`);
@@ -887,5 +928,27 @@ app.post('/api/migrateApprovedSchedules', async (req, res) => {
   }catch(err){
     console.error('Migration failed', err);
     res.status(500).json({ error: 'migration failed' });
+  }
+});
+
+// Notifications API - list and delete
+app.get('/api/notifications', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) return res.json({ notifications: [] });
+    const docs = await Notification.find().sort({ createdAt: -1 }).limit(200).lean();
+    res.json({ notifications: docs });
+  } catch (err) {
+    console.error('Failed to fetch notifications', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+app.delete('/api/notifications/:id', async (req, res) => {
+  try {
+    await Notification.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to delete notification', err);
+    res.status(500).json({ error: 'failed to delete' });
   }
 });

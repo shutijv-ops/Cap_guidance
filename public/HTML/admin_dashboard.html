@@ -38,6 +38,11 @@
         <button data-view="settings" class="nav-item"><span class="icon">⚙️</span>Settings</button>
       </nav>
 
+      <div class="nav-footer">
+        <button id="logoutBtn" class="nav-item logout-btn">
+          <span class="icon">🚪</span>Logout
+        </button>
+      </div>
       
     </aside>
 
@@ -54,10 +59,21 @@
         </div>
 
         <div class="right">
-          <button class="top-icon" title="Notifications">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 17H9" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3v3" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 8a6 6 0 0012 0" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="badge-red" id="notifCount">3</span>
-          </button>
+          <div class="notif-wrapper">
+            <button class="top-icon" id="notifBtn" title="Notifications">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 17H9" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3v3" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 8a6 6 0 0012 0" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="badge-red" id="notifCount">0</span>
+            </button>
+            <div class="notif-dropdown hidden" id="notifDropdown" aria-hidden="true">
+              <div class="notif-header">
+                <strong>Notifications</strong>
+                <button id="clearAllNotifs" class="btn ghost small">Clear</button>
+              </div>
+              <ul id="notifList" class="notif-list">
+                <!-- Notifications are loaded here -->
+              </ul>
+            </div>
+          </div>
 
           <div class="profile" id="profileBtn">
             <div class="avatar">MK</div>
