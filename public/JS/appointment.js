@@ -35,6 +35,25 @@
   const contact = document.getElementById('contact');
   const email = document.getElementById('email');
 
+  // Prefill student info from sessionStorage if available
+  try {
+    const stored = sessionStorage.getItem('studentData');
+    if (stored) {
+      const sd = JSON.parse(stored);
+      if (sd.studentId) studentid.value = sd.studentId;
+      if (sd.fname) fname.value = sd.fname;
+      if (sd.mname) mname.value = sd.mname || '';
+      if (sd.lname) lname.value = sd.lname;
+      if (sd.suffix) suffix.value = sd.suffix || '';
+      if (sd.course) course.value = sd.course || '';
+      if (sd.year) year.value = sd.year || '';
+      if (sd.contact) contact.value = sd.contact || '';
+      if (sd.email) email.value = sd.email || '';
+    }
+  } catch (err) {
+    console.warn('Could not parse studentData from sessionStorage', err);
+  }
+
   // Calendar and slots
   const calendarGrid = document.getElementById('calendarGrid');
   const monthLabel = document.getElementById('monthLabel');

@@ -391,6 +391,7 @@ app.post('/api/appointments/request', async (req, res) => {
   // Generate ref number
   const refNumber = 'JR' + Date.now().toString(36).toUpperCase().slice(-8);
   try {
+    console.log('Processing appointment request:', { date, time, urgency });
     // Convert 24-hour time to 12-hour format for checking
     const timeFormatMap = {
       '09:00': '9:00 AM',
@@ -400,6 +401,10 @@ app.post('/api/appointments/request', async (req, res) => {
       '14:00': '2:00 PM',
       '15:00': '3:00 PM'
     };
+    
+    if (!timeFormatMap[time]) {
+      return res.status(400).json({ error: `Invalid time slot: ${time}. Valid times are: ${Object.keys(timeFormatMap).join(', ')}` });
+    }
     
     // Check if this specific time slot is approved/booked
     const approvedSlot = await ApprovedSchedule.findOne({
@@ -447,23 +452,39 @@ app.post('/api/appointments/request', async (req, res) => {
     }
     // Create appointment
     const appt = new Appointment({
-      studentid: studentId,
-      fname: name,
+      studentid,
+      fname,
+      mname,
+      lname,
+      suffix,
+      course,
+      year,
+      contact,
       email,
       date: apptDate,
       time: apptTime,
       reason,
+      urgency,
       refNumber,
-      createdAt: new Date(),
-      status,
-      urgency
+      status
     });
-    await appt.save();
-    sendSseEvent('appointment', appt);
-    res.json({ ok: true, refNumber });
+
+    try {
+      await appt.save();
+      console.log('Appointment saved successfully:', { refNumber, status });
+      sendSseEvent('appointment', appt);
+      res.json({ ok: true, refNumber });
+    } catch (saveErr) {
+      console.error('Error saving appointment:', saveErr);
+      if (saveErr.name === 'ValidationError') {
+        res.status(400).json({ error: 'Invalid appointment data: ' + Object.values(saveErr.errors).map(e => e.message).join(', ') });
+      } else {
+        res.status(500).json({ error: 'Failed to save appointment' });
+      }
+    }
   } catch (err) {
-    console.error('Error creating appointment:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error processing appointment request:', err);
+    res.status(500).json({ error: err.message || 'Server error creating appointment' });
   }
 });
 app.get('/api/appointments/stream', (req, res) => {

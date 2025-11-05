@@ -86,11 +86,20 @@ if(studentLoginBtn) {
         return;
       }
 
-      // Store student info in session
+      // Get the most recent appointment for student info
+      const latestAppointment = appointments[0];
+      
+      // Store complete student info from their existing appointment
       sessionStorage.setItem('studentData', JSON.stringify({
         studentId: schoolId,
         email: email,
-        name: appointments[0].fname + ' ' + (appointments[0].mname ? appointments[0].mname + ' ' : '') + appointments[0].lname
+        fname: latestAppointment.fname,
+        mname: latestAppointment.mname || '',
+        lname: latestAppointment.lname,
+        suffix: latestAppointment.suffix || '',
+        course: latestAppointment.course,
+        year: latestAppointment.year,
+        contact: latestAppointment.contact
       }));
 
       // Redirect to student dashboard

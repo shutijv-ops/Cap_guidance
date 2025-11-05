@@ -144,6 +144,31 @@
             <div id="apptMsg" style="margin-top:1rem; color:green; display:none; text-align:center;"></div>
           </div>
         </div>
+
+        <!-- Appointment Confirmation Modal -->
+        <div id="confirmationModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1000;">
+          <div class="modal-content card" style="background: #fff; padding: 2.2rem 2rem 1.5rem 2rem; border-radius: var(--card-radius,14px); max-width: 420px; width: 100%; position: relative; box-shadow: 0 12px 36px rgba(10,34,66,0.10); border: 1px solid #eef5fb;">
+            <span id="closeConfirmation" style="position:absolute; top:14px; right:18px; cursor:pointer; font-size:1.7rem; color:var(--nav,#0a2342);">&times;</span>
+            <div class="card-header" style="margin-bottom: 1.2rem;">
+              <h3 style="font-size:1.15rem; color:var(--nav,#0a2342); margin-bottom:4px;">Confirm Appointment Details</h3>
+              <div class="muted" style="color:var(--muted,#6b7280); font-size:0.97rem;">Please review your appointment details below:</div>
+            </div>
+            <div id="appointmentSummary" style="margin-bottom: 1.5rem;">
+              <div class="summary-item" style="margin-bottom: 0.8rem;">
+                <strong>Student Information:</strong>
+                <div id="studentDetails" style="margin-left: 1rem;"></div>
+              </div>
+              <div class="summary-item" style="margin-bottom: 0.8rem;">
+                <strong>Appointment Details:</strong>
+                <div id="appointmentDetails" style="margin-left: 1rem;"></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button id="editAppointment" class="secondary-btn" style="flex: 1; padding: 0.7rem; border: 1.5px solid var(--gold,#d4af37); background: white; border-radius: 8px; cursor: pointer;">Edit</button>
+              <button id="confirmAppointment" class="primary-btn" style="flex: 1; padding: 0.7rem; background: var(--gold,#d4af37); border: none; border-radius: 8px; cursor: pointer;">Confirm & Submit</button>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </main>

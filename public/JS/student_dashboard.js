@@ -181,11 +181,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Form submission logic
+  const confirmationModal = document.getElementById('confirmationModal');
+  const closeConfirmation = document.getElementById('closeConfirmation');
+  const editAppointment = document.getElementById('editAppointment');
+  const confirmAppointment = document.getElementById('confirmAppointment');
+  const studentDetails = document.getElementById('studentDetails');
+  const appointmentDetails = document.getElementById('appointmentDetails');
+
+  let appointmentData = null;
+
   if (apptForm) {
     apptForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!studentData) return;
-  const urgency = getSelectedUrgency();
+      const urgency = getSelectedUrgency();
       let date = document.getElementById('apptDate').value;
       let time = document.getElementById('apptTime').value;
       const reason = document.getElementById('apptReason').value;
@@ -199,36 +208,106 @@ document.addEventListener('DOMContentLoaded', () => {
         date = `${yyyy}-${mm}-${dd}`;
         time = '09:00';
       }
+      // Validate that studentData contains required fields
+      const requiredFields = ['studentId','fname','lname','course','year','contact','email'];
+      const missing = requiredFields.filter(f => !studentData[f] || String(studentData[f]).trim() === '');
+      if(missing.length){
+        apptMsg.textContent = `Missing profile data: ${missing.join(', ')}. Please update your profile before requesting an appointment.`;
+        apptMsg.style.color = 'red';
+        apptMsg.style.display = 'block';
+        return;
+      }
+
+      // Store appointment data for submission
+      appointmentData = {
+        studentid: studentData.studentId,
+        fname: studentData.fname,
+        mname: studentData.mname || '',
+        lname: studentData.lname,
+        suffix: studentData.suffix || '',
+        course: studentData.course,
+        year: studentData.year,
+        contact: studentData.contact,
+        email: studentData.email,
+        date,
+        time,
+        reason,
+        urgency
+      };
+
+      // Show confirmation modal with details
+      studentDetails.innerHTML = `
+        <p>Name: ${appointmentData.fname} ${appointmentData.mname ? appointmentData.mname + ' ' : ''}${appointmentData.lname}${appointmentData.suffix ? ' ' + appointmentData.suffix : ''}</p>
+        <p>ID: ${appointmentData.studentid}</p>
+        <p>Course: ${appointmentData.course}</p>
+        <p>Year: ${appointmentData.year}</p>
+        <p>Contact: ${appointmentData.contact}</p>
+        <p>Email: ${appointmentData.email}</p>
+      `;
+
+      appointmentDetails.innerHTML = `
+        <p>Date: ${new Date(appointmentData.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p>Time: ${appointmentData.time}</p>
+        <p>Urgency: <span class="${appointmentData.urgency.toLowerCase()}-urgency">${appointmentData.urgency}</span></p>
+        <p>Reason: ${appointmentData.reason}</p>
+      `;
+
+      apptModal.style.display = 'none';
+      confirmationModal.style.display = 'flex';
+      return;
+    });
+  }
+
+  // Handle confirmation modal actions
+  if (closeConfirmation) {
+    closeConfirmation.addEventListener('click', () => {
+      confirmationModal.style.display = 'none';
+      apptModal.style.display = 'flex';
+    });
+  }
+
+  if (editAppointment) {
+    editAppointment.addEventListener('click', () => {
+      confirmationModal.style.display = 'none';
+      apptModal.style.display = 'flex';
+    });
+  }
+
+  if (confirmAppointment) {
+    confirmAppointment.addEventListener('click', async () => {
       try {
         const res = await fetch('/api/appointments/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentid: studentData.studentId,
-            fname: studentData.fname,
-            mname: studentData.mname || '',
-            lname: studentData.lname,
-            suffix: studentData.suffix || '',
-            course: studentData.course,
-            year: studentData.year,
-            contact: studentData.contact,
-            email: studentData.email,
-            date,
-            time,
-            reason,
-            urgency
-          })
+          body: JSON.stringify(appointmentData)
         });
-        if (!res.ok) throw new Error('Failed to submit request');
-        apptMsg.textContent = 'Appointment request submitted!';
+        if (!res.ok) {
+          // try to show server-provided message
+          let errBody = null;
+          try { errBody = await res.json(); } catch (e) { /* ignore */ }
+          const serverMsg = errBody && (errBody.error || errBody.message) ? (errBody.error || errBody.message) : 'Failed to submit request';
+          apptMsg.textContent = serverMsg;
+          apptMsg.style.color = 'red';
+          apptMsg.style.display = 'block';
+          confirmationModal.style.display = 'none';
+          apptModal.style.display = 'flex';
+          return;
+        }
+
+        const result = await res.json();
+        apptMsg.textContent = 'Appointment request submitted successfully! Reference number: ' + result.refNumber;
         apptMsg.style.color = 'green';
         apptMsg.style.display = 'block';
         apptForm.reset();
+        confirmationModal.style.display = 'none';
+        apptModal.style.display = 'flex';
+        
         setTimeout(() => {
           apptModal.style.display = 'none';
           renderAppointments(studentData.studentId, studentData.email);
-        }, 1200);
+        }, 2000);
       } catch (err) {
+        console.error('Error submitting appointment request:', err);
         apptMsg.textContent = 'Error submitting request. Please try again.';
         apptMsg.style.color = 'red';
         apptMsg.style.display = 'block';
@@ -255,10 +334,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!data) return;
     
     if (avatarText) {
-      avatarText.textContent = data.name.charAt(0).toUpperCase();
+      avatarText.textContent = data.fname.charAt(0).toUpperCase();
     }
     if (nameDisplay) {
-      nameDisplay.textContent = data.name;
+      const fullName = `${data.fname} ${data.mname ? data.mname + ' ' : ''}${data.lname}${data.suffix ? ' ' + data.suffix : ''}`;
+      nameDisplay.textContent = fullName;
     }
     if (studentIdDisplay) {
       studentIdDisplay.textContent = data.studentId;
