@@ -59,6 +59,41 @@ body {
   font-weight: 600;
 }
 
+/* Primary action button (used for Request New Appointment) */
+#newApptBtn.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(90deg, #f6c24a 0%, #d4af37 50%, #e8c76b 100%);
+  color: #081225;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(212,175,55,0.12), inset 0 -2px 6px rgba(0,0,0,0.04);
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+  font-size: 1rem;
+}
+
+#newApptBtn.primary-btn::before {
+  content: "📅";
+  display: inline-block;
+  transform: translateY(-1px);
+  font-size: 1.05rem;
+}
+
+#newApptBtn.primary-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px rgba(212,175,55,0.18);
+}
+
+#newApptBtn.primary-btn:focus {
+  outline: 3px solid rgba(212,175,55,0.18);
+  outline-offset: 2px;
+}
+
 /* Top Bar */
 .topbar {
   background: white;
