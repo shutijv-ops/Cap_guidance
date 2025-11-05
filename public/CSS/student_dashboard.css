@@ -22,6 +22,43 @@ body {
   background: #f8fafc;
 }
 
+/* Time Slot Buttons */
+.time-slot-btn {
+  background: #fff;
+  border: 1.5px solid #d4af37;
+  border-radius: 10px;
+  padding: 0.7rem 0;
+  font-size: 1.07rem;
+  color: var(--nav,#0a2342);
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(212,175,55,0.07);
+  transition: all 0.3s ease;
+}
+
+.time-slot-btn:not(:disabled):hover {
+  background: #faf5e3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212,175,55,0.15);
+}
+
+.time-slot-btn:disabled {
+  background: #E5E7EB !important;
+  border-color: #9CA3AF !important;
+  color: #6B7280 !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.time-slot-btn.selected {
+  background: var(--gold,#d4af37) !important;
+  border-color: var(--nav,#0a2342) !important;
+  color: #0a2342 !important;
+  font-weight: 600;
+}
+
 /* Top Bar */
 .topbar {
   background: white;
@@ -181,6 +218,35 @@ body {
 }
 
 /* Appointments List */
+
+/* ---------- Urgency grid (color-coded) - match appointment.css design ---------- */
+.urgency-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  margin:10px 0 16px;
+}
+@media (max-width:720px){ .urgency-grid{ grid-template-columns: 1fr; } }
+
+.urgency-option{ border-radius:10px; overflow:hidden; background:linear-gradient(180deg,#fff,#fbfdff); border:1px solid #eef5fb; transition: box-shadow .18s ease, transform .18s ease; }
+.urgency-option label{ display:block; padding:12px; cursor:pointer; }
+.urgency-option label:hover{ box-shadow: 0 20px 40px rgba(10,34,66,0.04); transform: translateY(-4px); }
+
+.dot{ width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:8px; vertical-align:middle; }
+.dot.red{ background:#ef4444; }
+.dot.orange{ background:#fb923c; }
+.dot.yellow{ background:#f59e0b; }
+.dot.green{ background:#10b981; }
+
+/* when radio checked, subtle left-color accent */
+#appt_crisis:checked + label{ box-shadow: 0 18px 40px rgba(239,68,68,0.06); border-left:6px solid rgba(239,68,68,0.12); }
+#appt_high:checked + label{ box-shadow: 0 18px 40px rgba(251,146,60,0.06); border-left:6px solid rgba(251,146,60,0.12); }
+#appt_medium:checked + label{ box-shadow: 0 18px 40px rgba(245,158,11,0.06); border-left:6px solid rgba(245,158,11,0.12); }
+#appt_low:checked + label{ box-shadow: 0 18px 40px rgba(16,185,129,0.06); border-left:6px solid rgba(16,185,129,0.12); }
+
+.u-title{ font-weight:700; color:#123a6a; font-size:0.98rem; display:flex; align-items:center; gap:8px; }
+.u-sub{ margin-top:6px; color:var(--muted); font-size:0.88rem; }
+
 .appointments-list {
   display: flex;
   flex-direction: column;

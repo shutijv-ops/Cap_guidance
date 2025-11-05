@@ -5,22 +5,22 @@ const Counselor = require('./models/counselors');
 
 // Define Appointment Schema
 const appointmentSchema = new mongoose.Schema({
-  studentid: String,
-  fname: String,
+  studentid: { type: String, required: true },
+  fname: { type: String, required: true },
   mname: String,
-  lname: String,
+  lname: { type: String, required: true },
   suffix: String,
-  course: String,
-  year: String,
-  contact: String,
-  email: String,
-  urgency: String,
-  reason: String,
-  date: String, // stored as yyyy-mm-dd
-  time: String,
-  refNumber: String,
+  course: { type: String, required: true },
+  year: { type: String, required: true },
+  contact: { type: String, required: true },
+  email: { type: String, required: true },
+  urgency: { type: String, required: true },
+  reason: { type: String, required: true },
+  date: { type: String, required: true }, // stored as yyyy-mm-dd
+  time: { type: String, required: true },
+  refNumber: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
-  status: { type: String, default: 'Pending' }
+  status: { type: String, default: 'Pending', enum: ['Pending', 'Booked', 'Cancelled', 'Completed'] }
 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
@@ -28,7 +28,8 @@ const Appointment = mongoose.model('Appointment', appointmentSchema);
 // ApprovedSchedule schema for mirroring approved/rescheduled appointments
 const approvedScheduleSchema = new mongoose.Schema({
   date: String, // yyyy-mm-dd
-  time: String  // e.g., '9:00 AM'
+  time: String, // e.g., '9:00 AM'
+  status: { type: String, default: 'available', enum: ['available', 'booked'] }
 });
 const ApprovedSchedule = mongoose.model('ApprovedSchedule', approvedScheduleSchema);
 
@@ -42,10 +43,87 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/jrmsu_
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
-}).then(() => {
+}).then(async () => {
   console.log('Connected to MongoDB');
+  
+  // Add test approved schedules if they don't exist
+  try {
+    // Test data with different times on the same date
+    const testSchedules = [
+      { date: "2025-11-12", time: "9:00 AM" },
+      { date: "2025-11-12", time: "2:00 PM" },
+      { date: "2025-11-13", time: "10:00 AM" }
+    ];
+
+    for (const schedule of testSchedules) {
+      const existingSchedule = await ApprovedSchedule.findOne({
+        date: schedule.date,
+        time: schedule.time
+      });
+
+      if (!existingSchedule) {
+        const newSchedule = new ApprovedSchedule(schedule);
+        await newSchedule.save();
+        console.log(`Added test approved schedule for ${schedule.date} at ${schedule.time}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error adding test schedules:', error);
+  }
 }).catch((error) => {
   console.error('MongoDB connection error:', error);
+});
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+app.use(express.static('public'));
+
+// Get available time slots for a specific date
+app.get('/api/schedules/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const schedules = await ApprovedSchedule.find({ date });
+    const appointments = await Appointment.find({ 
+      date,
+      status: { $in: ['Booked', 'Pending'] }
+    });
+
+    // Get all approved schedules for this date
+    const approvedSchedules = await ApprovedSchedule.find({ date });
+    
+    // Create a map to convert 24-hour format to 12-hour format
+    const timeFormatMap = {
+      '09:00': '9:00 AM',
+      '10:00': '10:00 AM',
+      '11:00': '11:00 AM',
+      '13:00': '1:00 PM',
+      '14:00': '2:00 PM',
+      '15:00': '3:00 PM'
+    };
+
+    // Create a map of time slots and their availability
+    const bookedTimeSlots = new Map();
+    approvedSchedules.forEach(schedule => {
+      // Convert the 12-hour time back to 24-hour format
+      const time24hr = Object.entries(timeFormatMap).find(([_, val]) => val === schedule.time)?.[0];
+      if (time24hr) {
+        bookedTimeSlots.set(time24hr, true);
+      }
+    });
+
+    // Create all possible time slots for the day
+    const defaultTimes = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00'];
+    const availableSlots = defaultTimes.map(time => ({
+      time,
+      // Only mark this specific time as booked if it exists in approved schedules
+      status: bookedTimeSlots.has(time) ? 'booked' : 'available'
+    }));
+
+    res.json(availableSlots);
+  } catch (error) {
+    console.error('Error fetching time slots:', error);
+    res.status(500).json({ error: 'Failed to fetch available time slots' });
+  }
 });
 
 // Default counselor info
@@ -289,6 +367,105 @@ app.get('/api/bookedSlots', async (req, res) => {
 });
 
 // SSE stream for admin dashboards to receive realtime appointment events
+// API: student requests new appointment
+app.post('/api/appointments/request', async (req, res) => {
+  const { 
+    studentid,
+    fname,
+    mname,
+    lname,
+    suffix,
+    course,
+    year,
+    contact,
+    email,
+    date,
+    time,
+    reason,
+    urgency
+  } = req.body;
+  
+  if (!studentid || !fname || !lname || !course || !year || !contact || !email || !date || !time || !reason || !urgency) {
+    return res.status(400).json({ error: 'All required fields must be filled.' });
+  }
+  // Generate ref number
+  const refNumber = 'JR' + Date.now().toString(36).toUpperCase().slice(-8);
+  try {
+    // Convert 24-hour time to 12-hour format for checking
+    const timeFormatMap = {
+      '09:00': '9:00 AM',
+      '10:00': '10:00 AM',
+      '11:00': '11:00 AM',
+      '13:00': '1:00 PM',
+      '14:00': '2:00 PM',
+      '15:00': '3:00 PM'
+    };
+    
+    // Check if this specific time slot is approved/booked
+    const approvedSlot = await ApprovedSchedule.findOne({
+      date: date,
+      time: timeFormatMap[time] // Convert 24-hour time to 12-hour format
+    });
+    
+    if (approvedSlot) {
+      return res.status(409).json({ 
+        error: `The time slot ${timeFormatMap[time]} on ${date} is not available` 
+      });
+    }
+
+    // Check if there's an existing appointment for this slot
+    const existingAppointment = await Appointment.findOne({
+      date,
+      time,
+      status: { $in: ['Booked', 'Pending'] }
+    });
+
+    if (existingAppointment) {
+      return res.status(409).json({ error: 'This time slot is already taken' });
+    }
+
+    let status = 'Pending';
+    let apptDate = date;
+    let apptTime = time;
+    
+    if (urgency === 'Crisis') {
+      // Auto-schedule for today, status booked
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      apptDate = `${yyyy}-${mm}-${dd}`;
+      apptTime = '09:00';
+      status = 'Booked';
+    }
+    // Check for double booking (except for crisis, which is always auto-booked)
+    if (urgency !== 'Crisis') {
+      const existing = await Appointment.findOne({ date: apptDate, time: apptTime, status: 'booked' });
+      if (existing) {
+        return res.status(409).json({ error: 'Time slot already booked', existingRef: existing.refNumber });
+      }
+    }
+    // Create appointment
+    const appt = new Appointment({
+      studentid: studentId,
+      fname: name,
+      email,
+      date: apptDate,
+      time: apptTime,
+      reason,
+      refNumber,
+      createdAt: new Date(),
+      status,
+      urgency
+    });
+    await appt.save();
+    sendSseEvent('appointment', appt);
+    res.json({ ok: true, refNumber });
+  } catch (err) {
+    console.error('Error creating appointment:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 app.get('/api/appointments/stream', (req, res) => {
   // headers for SSE
   res.setHeader('Content-Type', 'text/event-stream');
