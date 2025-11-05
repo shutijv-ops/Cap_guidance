@@ -262,7 +262,9 @@
             <div class="panel-header">
               <h3>Student Directory</h3>
               <div style="display:flex;gap:8px;align-items:center">
-                <button class="btn ghost">Filters</button>
+                <span>Sort by Last Appointment:</span>
+                <button id="sortStudentsAsc" title="Sort Ascending" class="btn ghost" style="font-size:1.2rem;">&#8593;</button>
+                <button id="sortStudentsDesc" title="Sort Descending" class="btn ghost" style="font-size:1.2rem;">&#8595;</button>
                 <button class="btn">Export</button>
               </div>
             </div>
@@ -369,6 +371,19 @@
                   </div>
                   <div style="height:260px; margin-top:12px;">
                     <canvas id="urgencyLineChart" class="chart-canvas" aria-label="Urgency trend line chart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <!-- College distribution card -->
+              <div style="margin-top:16px; display:flex; gap:16px;">
+                <div class="card" style="padding:12px; width:340px; display:flex; flex-direction:column;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-weight:600;">Appointments by College</div>
+                    <div class="text-muted" style="font-size:13px">Grouped by college/department</div>
+                  </div>
+                  <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+                    <svg id="collegeDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
+                    <div class="chart-legend" id="collegeLegend" style="flex:1"></div>
                   </div>
                 </div>
               </div>

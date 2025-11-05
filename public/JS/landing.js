@@ -54,6 +54,54 @@ if(adminLoginBtn){
   });
 }
 
+// Student login submit
+const studentLoginBtn = document.getElementById('studentLoginBtn');
+if(studentLoginBtn) {
+  studentLoginBtn.addEventListener('click', async () => {
+    const schoolId = document.getElementById('schoolId').value?.trim();
+    const email = document.getElementById('email').value?.trim();
+
+    if (!schoolId || !email) {
+      alert('Please enter both School ID and Email');
+      return;
+    }
+
+    try {
+      // Verify student has existing appointments
+      const res = await fetch('/api/appointments/student', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: schoolId, email })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || 'Login failed. Make sure you have an existing appointment.');
+        return;
+      }
+
+      const appointments = await res.json();
+      if (!appointments || appointments.length === 0) {
+        alert('No appointments found. Please schedule an appointment first.');
+        return;
+      }
+
+      // Store student info in session
+      sessionStorage.setItem('studentData', JSON.stringify({
+        studentId: schoolId,
+        email: email,
+        name: appointments[0].fname + ' ' + (appointments[0].mname ? appointments[0].mname + ' ' : '') + appointments[0].lname
+      }));
+
+      // Redirect to student dashboard
+      window.location.href = '/HTML/student_dashboard.html';
+    } catch(err) {
+      console.error('Student login error:', err);
+      alert('Login failed. Please try again.');
+    }
+  });
+}
+
 // Close modal when clicking outside
 window.addEventListener("click", (e) => {
   if (e.target === loginModal) {

@@ -77,14 +77,31 @@ class AppointmentCalendar {
   }
 
   formatAppointment(appointment) {
-    const time = appointment.time || '';
-    const name = `${appointment.fname || ''} ${appointment.lname || ''}`.trim();
-    const status = appointment.status?.toLowerCase() || 'pending';
-    return `
-      <div class="calendar-event ${status}" title="${name} - ${time}">
-        ${time} ${name}
-      </div>
-    `;
+      const time = appointment.time || '';
+      const name = `${appointment.fname || ''} ${appointment.lname || ''}`.trim();
+      const status = appointment.status?.toLowerCase() || 'pending';
+      // Determine color based on urgency
+      let color = '';
+      switch ((appointment.urgency || '').toLowerCase()) {
+        case 'emergency':
+          color = '#dc2626'; // red
+          break;
+        case 'high':
+          color = '#f59e0b'; // orange
+          break;
+        case 'medium':
+          color = '#2563eb'; // blue
+          break;
+        case 'low':
+        default:
+          color = '#10b981'; // green
+          break;
+      }
+      return `
+        <div class="calendar-event ${status}" title="${name} - ${time}">
+          ${time} <span style="color:${color};font-weight:bold;">${name}</span>
+        </div>
+      `;
   }
 
   render() {

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Dashboard - JRMSU Guidance</title>
+  <link rel="stylesheet" href="../CSS/student_dashboard.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar" role="banner">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-left">
+          <div class="brand-logo">
+            <img src="https://i.ibb.co/20d2MvxK/FB-IMG-1757506376756.jpg" alt="JRMSU Logo">
+          </div>
+          <div class="brand-text">
+            <div class="campus">JRMSU Dapitan Campus</div>
+            <div class="sub">Jose Rizal Memorial State University</div>
+          </div>
+        </div>
+
+        <div class="brand-right">
+          <div class="guidance">Guidance Counseling</div>
+          <div class="system">Student Dashboard</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <div class="sidebar">
+      <div class="user-info">
+        <div class="avatar">
+          <div class="avatar-text"></div>
+        </div>
+        <div class="user-details">
+          <div class="name"></div>
+          <div class="student-id"></div>
+        </div>
+      </div>
+      <nav class="side-nav">
+        <a href="#appointments" class="nav-item active">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M7 11h10M3 7h18M7 3v4M17 3v4" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Appointments
+        </a>
+        <button class="nav-item" id="logoutBtn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M14 8V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h7a2 2 0 002-2v-2M9 12h12m0 0l-3-3m3 3l-3 3" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Logout
+        </button>
+      </nav>
+    </div>
+
+    <div class="main-content">
+      <section id="appointments" class="active-section">
+        <h2>My Appointments</h2>
+        <div class="sort-controls" style="margin-bottom: 1rem; display: flex; gap: 0.5rem; align-items: center;">
+          <span>Sort by Date:</span>
+          <button id="sortAscBtn" title="Sort Ascending" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">
+            &#8593;
+          </button>
+          <button id="sortDescBtn" title="Sort Descending" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">
+            &#8595;
+          </button>
+        </div>
+        <div class="appointments-list">
+          <!-- Appointments will be loaded here -->
+          <div class="loading">Loading your appointments...</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <h4>Emergency Contacts</h4>
+        <p>Campus Security: (065) 123-2234<br>Emergency: 911</p>
+      </div>
+      <div class="footer-col">
+        <h4>Guidance Office</h4>
+        <p>JRMSU Dapitan Campus<br>Mon-Fri: 8:00 AM - 5:00 PM<br>guidance@jrmsu.edu.ph</p>
+      </div>
+      <div class="footer-col">
+        <h4>Support Resources</h4>
+        <ul>
+          <li>Mental Health Services</li>
+          <li>Academic Counseling</li>
+          <li>Career Guidance</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© <span id="footerYear"></span> Jose Rizal Memorial State University - Dapitan Campus. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="../JS/student_dashboard.js"></script>
+</body>
+</html>

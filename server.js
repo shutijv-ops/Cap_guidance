@@ -3,11 +3,43 @@ const path = require('path');
 const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
 
+// Define Appointment Schema
+const appointmentSchema = new mongoose.Schema({
+  studentid: String,
+  fname: String,
+  mname: String,
+  lname: String,
+  suffix: String,
+  course: String,
+  year: String,
+  contact: String,
+  email: String,
+  urgency: String,
+  reason: String,
+  date: String, // stored as yyyy-mm-dd
+  time: String,
+  refNumber: String,
+  createdAt: { type: Date, default: Date.now },
+  status: { type: String, default: 'Pending' }
+});
+
+const Appointment = mongoose.model('Appointment', appointmentSchema);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Use environment variable MONGODB_URI or fallback to local
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/jrmsu_appointments';
+
+// Connect to MongoDB
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch((error) => {
+  console.error('MongoDB connection error:', error);
+});
 
 // Default counselor info
 const DEFAULT_COUNSELOR = {
@@ -46,6 +78,26 @@ app.get('/', (req, res) => {
 
 // Simple health
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Get student appointments by student ID and email
+app.post('/api/appointments/student', async (req, res) => {
+  const { studentId, email } = req.body;
+
+  if (!studentId || !email) {
+    return res.status(400).json({ error: 'Student ID and email are required' });
+  }
+
+  try {
+    const appointments = await Appointment.find({
+      studentid: studentId,
+      email: email
+    }).sort({ createdAt: -1 });
+
+    res.json(appointments);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Get appointment details by reference number
 app.get('/api/appointment/:ref', async (req, res) => {
@@ -95,27 +147,7 @@ function formatAppointmentData(data) {
   };
 }
 
-// Mongoose model
-const appointmentSchema = new mongoose.Schema({
-  studentid: String,
-  fname: String,
-  mname: String,
-  lname: String,
-  suffix: String,
-  course: String,
-  year: String,
-  contact: String,
-  email: String,
-  urgency: String,
-  reason: String,
-  date: String, // stored as yyyy-mm-dd
-  time: String,
-  refNumber: String,
-  createdAt: { type: Date, default: Date.now },
-  status: { type: String, default: 'Pending' }
-});
-
-const Appointment = mongoose.model('Appointment', appointmentSchema);
+// Mongoose model was moved to top of file
 
 // SSE clients for realtime updates
 const sseClients = new Set();
