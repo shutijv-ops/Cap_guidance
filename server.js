@@ -1,7 +1,104 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
+const sgMail = require('@sendgrid/mail');
+
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
+
+// Email helper function
+// Helper function to format date for email
+function formatDateForEmail(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+// Helper function to format time for email
+function formatTimeForEmail(timeStr) {
+  // Convert 24-hour format to 12-hour if needed
+  if (timeStr.includes(':')) {
+    const [hours, minutes] = timeStr.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  }
+  return timeStr; // Return as is if already in desired format
+}
+
+async function sendAppointmentEmail(appt, type = 'approved') {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn('SendGrid API key not configured - skipping email send');
+    return;
+  }
+  
+  console.log(`Preparing to send ${type} email for appointment:`, appt.refNumber);
+  
+  try {
+    const to = appt.email;
+    const formattedDate = formatDateForEmail(appt.date);
+    const formattedTime = formatTimeForEmail(appt.time);
+    
+    let subject, statusText, additionalNote;
+    
+    if (type === 'rescheduled') {
+      subject = `Your JRMSU Counseling Appointment has been Rescheduled - Ref ${appt.refNumber}`;
+      statusText = 'rescheduled and approved';
+      additionalNote = '<p><strong>Note:</strong> This appointment has been rescheduled by the guidance office. If this new schedule does not work for you, please contact us immediately.</p>';
+    } else {
+      subject = `Your JRMSU Counseling Appointment is Approved - Ref ${appt.refNumber}`;
+      statusText = 'approved';
+      additionalNote = '';
+    }
+
+    const html = `
+      <p>Hi ${appt.fname} ${appt.lname},</p>
+      <p>Your appointment request (Reference Number: <strong>${appt.refNumber}</strong>) has been <strong>${statusText}</strong>.</p>
+      <p><strong>Appointment Details:</strong></p>
+      <ul>
+        <li>Date: ${formattedDate}</li>
+        <li>Time: ${formattedTime}</li>
+        <li>Counselor: ${appt.counselor || 'To be assigned'}</li>
+        <li>Venue: JRMSU Guidance Office</li>
+      </ul>
+      ${additionalNote}
+      <p><strong>Important Notes:</strong></p>
+      <ul>
+        <li>Please arrive 5-10 minutes before your scheduled time</li>
+        <li>Bring your school ID</li>
+        <li>If you need to reschedule, please contact the guidance office at least 24 hours before</li>
+      </ul>
+      <p>For any questions or concerns, you can:</p>
+      <ul>
+        <li>Email us at guidance@jrmsu.edu.ph</li>
+        <li>Call us at (065) 123-2234</li>
+      </ul>
+      <p>Thank you for using our online appointment system.</p>
+      <p>Best regards,<br/>JRMSU Guidance Office</p>
+    `;
+
+    const msg = {
+      to,
+      from: process.env.FROM_EMAIL,
+      subject,
+      html
+    };
+
+    await sgMail.send(msg);
+    console.log('Approval email sent to', to);
+  } catch (err) {
+    console.error('Failed to send approval email:', err?.response?.body?.errors || err);
+  }
+}
 
 // Define Appointment Schema
 const appointmentSchema = new mongoose.Schema({
@@ -61,7 +158,7 @@ mongoose.connect(MONGODB_URI, {
         time: schedule.time
       });
 
-      if (!existingSchedule) {
+      mailSettings: { sandboxMode: { enable: true } }      if (!existingSchedule) {
         const newSchedule = new ApprovedSchedule(schedule);
         await newSchedule.save();
         console.log(`Added test approved schedule for ${schedule.date} at ${schedule.time}`);
@@ -565,9 +662,12 @@ app.put('/api/appointments/:ref', async (req, res) => {
   const ref = req.params.ref;
   const body = req.body || {};
   try{
+    console.log('Processing appointment update:', { ref, body });
+    
     if(mongoose.connection.readyState !== 1){
       return res.status(503).json({ error: 'Database not available' });
     }
+    
     // Format any incoming data that needs capitalization
     const formattedData = formatAppointmentData(body);
     const update = {};
@@ -577,33 +677,83 @@ app.put('/api/appointments/:ref', async (req, res) => {
     if(body.counselor) update.counselor = body.counselor;
     if(Object.keys(update).length === 0) return res.status(400).json({ error: 'nothing to update' });
 
+    console.log('Update data:', update);
+
     // Fetch prior state to handle approved schedule mirroring
     const prior = await Appointment.findOne({ refNumber: ref }).lean();
+    console.log('Prior appointment state:', prior);
+    
     const appt = await Appointment.findOneAndUpdate({ refNumber: ref }, { $set: update }, { new: true }).lean();
     if(!appt) return res.status(404).json({ error: 'not found' });
+    
+    console.log('Updated appointment:', appt);
 
     try{
       const priorStatus = (prior && prior.status || '').toLowerCase();
       const newStatus = (appt.status || '').toLowerCase();
-      const wasApproved = ['approved','rescheduled/approved'].includes(priorStatus);
-      const isApproved = ['approved','rescheduled/approved'].includes(newStatus);
+      const wasApproved = ['approved', 'rescheduled/approved', 'booked'].includes(priorStatus);
+      const isApproved = ['approved', 'rescheduled/approved', 'booked'].includes(newStatus);
+
+      console.log('Status check:', { priorStatus, newStatus, wasApproved, isApproved });
 
       // If prior was approved but now unapproved, remove the old approved schedule
       if(wasApproved && !isApproved && prior && prior.date && prior.time){
         await ApprovedSchedule.deleteOne({ date: prior.date, time: prior.time });
       }
 
+      // Track schedule changes
+      const hasScheduleChanged = prior && (prior.date !== appt.date || prior.time !== appt.time);
+      console.log('Schedule change check:', { 
+        hasChanged: hasScheduleChanged,
+        oldDate: prior?.date,
+        newDate: appt.date,
+        oldTime: prior?.time,
+        newTime: appt.time
+      });
+
       // If new state is approved, upsert into ApprovedSchedule
-      if(isApproved && appt.date && appt.time){
+      if((isApproved || body.status === 'Booked') && appt.date && appt.time){
         // If the date/time changed from a prior approved entry, remove old one
-        if(wasApproved && prior && (prior.date !== appt.date || prior.time !== appt.time)){
+        if(wasApproved && hasScheduleChanged){
           await ApprovedSchedule.deleteOne({ date: prior.date, time: prior.time });
         }
+        
         await ApprovedSchedule.updateOne(
           { date: appt.date, time: appt.time },
           { $set: { date: appt.date, time: appt.time } },
           { upsert: true }
         );
+        
+        // Determine email type and send notification
+        let emailType = 'approved';
+        if(hasScheduleChanged && wasApproved) {
+          emailType = 'rescheduled';
+          console.log('Detected rescheduling:', {
+            from: `${prior.date} ${prior.time}`,
+            to: `${appt.date} ${appt.time}`
+          });
+        }
+        
+        console.log('Sending email notification:', { 
+          type: emailType, 
+          ref: appt.refNumber,
+          email: appt.email 
+        });
+        
+        // Send appropriate email without waiting
+        sendAppointmentEmail(appt, emailType).catch(err => {
+          console.error('Failed to send appointment email:', err);
+          console.error('Appointment details:', {
+            ref: appt.refNumber,
+            email: appt.email,
+            status: newStatus,
+            emailType,
+            originalDate: prior?.date,
+            originalTime: prior?.time,
+            newDate: appt.date,
+            newTime: appt.time
+          });
+        });
       }
     }catch(e){ console.error('Failed to sync ApprovedSchedule on update:', e); }
 
