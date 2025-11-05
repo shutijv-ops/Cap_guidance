@@ -386,8 +386,19 @@
                     <div class="chart-legend" id="collegeLegend" style="flex:1"></div>
                   </div>
                 </div>
+                <!-- Course-level distribution -->
+                <div class="card" style="padding:12px; flex:1; display:flex; flex-direction:column;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-weight:600;">Appointments by Course</div>
+                    <div class="text-muted" style="font-size:13px">Individual course breakdown</div>
+                  </div>
+                  <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+                    <svg id="courseDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
+                    <div class="chart-legend" id="courseLegend" style="flex:1; max-height:240px; overflow-y:auto;"></div>
+                  </div>
+                </div>
               </div>
-            </div>
+             </div>
         </div>
 
         <!-- ===== Settings View ===== -->

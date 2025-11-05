@@ -315,3 +315,33 @@ textarea:focus{ outline:none; border-color:var(--nav); box-shadow: 0 10px 30px r
     display: inline-block;
   }
 }
+
+/* ---- Toast notifications ---- */
+#toastContainer{
+  position: fixed;
+  right: 18px;
+  top: 78px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+}
+.toast{
+  background: linear-gradient(180deg,#fff,#fbfdff);
+  border:1px solid rgba(10,34,66,0.06);
+  padding:10px 12px;
+  border-radius:10px;
+  box-shadow: 0 10px 26px rgba(10,34,66,0.08);
+  color: #0b2340;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  transform-origin: right top;
+  transition: transform .28s ease, opacity .28s ease;
+}
+.toast-hide{ transform: translateX(20px); opacity: 0; }
+.toast-body{ font-weight:700; font-size:0.95rem; color:#10243b; }
+.toast-close{ background:transparent; border:none; font-size:18px; line-height:1; cursor:pointer; color:#123a6a; padding:4px 6px; }
+

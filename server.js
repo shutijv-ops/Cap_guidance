@@ -25,6 +25,13 @@ const appointmentSchema = new mongoose.Schema({
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 
+// ApprovedSchedule schema for mirroring approved/rescheduled appointments
+const approvedScheduleSchema = new mongoose.Schema({
+  date: String, // yyyy-mm-dd
+  time: String  // e.g., '9:00 AM'
+});
+const ApprovedSchedule = mongoose.model('ApprovedSchedule', approvedScheduleSchema);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -269,9 +276,12 @@ app.get('/api/bookedSlots', async (req, res) => {
     if(mongoose.connection.readyState !== 1){
       return res.json({ booked: [] });
     }
-    const docs = await Appointment.find({ date, status: 'booked' }).select('time -_id').lean();
-    const booked = docs.map(d => d.time).filter(Boolean);
-    res.json({ booked });
+  const docs = await ApprovedSchedule.find({ date }).select('time -_id').lean();
+  // Log for debugging
+  console.log('Booked slots (ApprovedSchedule) for', date, ':', docs);
+  // Deduplicate and normalize times
+  const booked = Array.from(new Set(docs.map(d => (d.time || '').trim().toLowerCase())));
+  res.json({ booked });
   }catch(err){
     console.error(err);
     res.status(500).json({ error: 'internal' });
@@ -332,6 +342,16 @@ app.post('/api/appointments', async (req, res) => {
 
     const appt = new Appointment({ ...formattedData, refNumber: ref });
     await appt.save();
+    // If appointment is created already approved/rescheduled, mirror into ApprovedSchedule
+    if(['approved', 'rescheduled/approved'].includes((appt.status || '').toLowerCase())){
+      try{
+        await ApprovedSchedule.updateOne(
+          { date: appt.date, time: appt.time },
+          { $set: { date: appt.date, time: appt.time } },
+          { upsert: true }
+        );
+      }catch(e){ console.error('Failed to upsert ApprovedSchedule on create:', e); }
+    }
     const payload = { ...formattedData, refNumber: ref, createdAt: appt.createdAt, saved: true };
     // broadcast to SSE clients
     sendSseEvent('appointment', payload);
@@ -358,8 +378,37 @@ app.put('/api/appointments/:ref', async (req, res) => {
     if(body.time) update.time = formattedData.time || body.time;
     if(body.counselor) update.counselor = body.counselor;
     if(Object.keys(update).length === 0) return res.status(400).json({ error: 'nothing to update' });
+
+    // Fetch prior state to handle approved schedule mirroring
+    const prior = await Appointment.findOne({ refNumber: ref }).lean();
     const appt = await Appointment.findOneAndUpdate({ refNumber: ref }, { $set: update }, { new: true }).lean();
     if(!appt) return res.status(404).json({ error: 'not found' });
+
+    try{
+      const priorStatus = (prior && prior.status || '').toLowerCase();
+      const newStatus = (appt.status || '').toLowerCase();
+      const wasApproved = ['approved','rescheduled/approved'].includes(priorStatus);
+      const isApproved = ['approved','rescheduled/approved'].includes(newStatus);
+
+      // If prior was approved but now unapproved, remove the old approved schedule
+      if(wasApproved && !isApproved && prior && prior.date && prior.time){
+        await ApprovedSchedule.deleteOne({ date: prior.date, time: prior.time });
+      }
+
+      // If new state is approved, upsert into ApprovedSchedule
+      if(isApproved && appt.date && appt.time){
+        // If the date/time changed from a prior approved entry, remove old one
+        if(wasApproved && prior && (prior.date !== appt.date || prior.time !== appt.time)){
+          await ApprovedSchedule.deleteOne({ date: prior.date, time: prior.time });
+        }
+        await ApprovedSchedule.updateOne(
+          { date: appt.date, time: appt.time },
+          { $set: { date: appt.date, time: appt.time } },
+          { upsert: true }
+        );
+      }
+    }catch(e){ console.error('Failed to sync ApprovedSchedule on update:', e); }
+
     // broadcast update
     sendSseEvent('appointment:update', appt);
     res.json({ ok: true, appointment: appt });
@@ -465,5 +514,30 @@ app.get('/api/reports/monthly', async (req, res) => {
   }catch(err){
     console.error('Failed to aggregate monthly reports', err);
     res.status(500).json({ error: 'internal' });
+  }
+});
+
+// One-time migration endpoint: populate ApprovedSchedule from existing Appointment docs
+// Call this after deploying the new ApprovedSchedule feature to sync past approved appointments.
+app.post('/api/migrateApprovedSchedules', async (req, res) => {
+  try{
+    if(mongoose.connection.readyState !== 1) return res.status(503).json({ error: 'DB not connected' });
+    const docs = await Appointment.find({ date: { $exists: true }, time: { $exists: true }, status: { $exists: true } }).lean();
+    let count = 0;
+    for(const a of docs){
+      const st = (a.status || '').toLowerCase();
+      if(['approved','rescheduled/approved'].includes(st) && a.date && a.time){
+        await ApprovedSchedule.updateOne(
+          { date: a.date, time: a.time },
+          { $set: { date: a.date, time: a.time } },
+          { upsert: true }
+        );
+        count++;
+      }
+    }
+    res.json({ ok: true, migrated: count });
+  }catch(err){
+    console.error('Migration failed', err);
+    res.status(500).json({ error: 'migration failed' });
   }
 });

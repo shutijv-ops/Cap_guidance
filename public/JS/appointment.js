@@ -245,7 +245,7 @@
       if(payload.urgency === 'Crisis'){
         expectedTimeEl.textContent = 'Marked as CRISIS. A counselor will contact you as soon as possible.';
       } else {
-        expectedTimeEl.textContent = `Appointment scheduled on ${formatDateLong(selectedDate)} at ${selectedTime}. Please arrive 10 minutes early.`;
+        expectedTimeEl.textContent = `Your request has been processed. Please wait for counselor's approval through email and SMS for your appointment on ${formatDateLong(selectedDate)} at ${selectedTime}.`;
         // mark locally so UI updates immediately
         markSlotBooked(selectedDate, selectedTime);
       }
@@ -355,11 +355,11 @@ function setProgress(current){
       const res = await fetch(`/api/bookedSlots?date=${encodeURIComponent(key)}`);
       if(!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
-      // expect { booked: ['9:00 AM', ...] }
-      return data.booked || [];
+      // Normalize time strings for reliable comparison
+      return (data.booked || []).map(t => t.trim().toLowerCase());
     }catch(err){
-      // fallback to demo store
-      return bookedSlotsByDate[key] || [];
+      // In production, do not fallback to demo data
+      return [];
     }
   }
 
@@ -382,11 +382,13 @@ function setProgress(current){
   const key = toKey(selectedDate);
   const booked = await fetchBookedSlotsFor(selectedDate);
 
+  // Normalize frontend time arrays for reliable comparison
+  const normalize = t => t.trim().toLowerCase();
     const makeSlot = (time, container) => {
       const el = document.createElement('div');
       el.className = 'time-slot';
       el.textContent = time;
-      if(booked.includes(time)){
+      if(booked.includes(normalize(time))){
         el.classList.add('booked');
       } else {
         el.addEventListener('click', ()=> {
@@ -447,5 +449,79 @@ function setProgress(current){
 
   // utility get selected urgency
   function getSelectedUr(){ for(const r of urgencyRadios) if(r.checked) return r.value; return null; }
+
+  // ---------------- SSE realtime refresh ----------------
+  // Listen to server-sent events so the calendar/time slots refresh when admins approve or change appointments
+  if(typeof EventSource !== 'undefined'){
+    try{
+      const es = new EventSource('/api/appointments/stream');
+      // recent notifications to avoid spamming the user for same slot
+      const recentNotifications = new Set();
+
+      function showToast(message){
+        let container = document.getElementById('toastContainer');
+        if(!container){
+          container = document.createElement('div');
+          container.id = 'toastContainer';
+          document.body.appendChild(container);
+        }
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.innerHTML = `<div class="toast-body">${message}</div><button class="toast-close" aria-label="Close">×</button>`;
+        const closeBtn = t.querySelector('.toast-close');
+        closeBtn.addEventListener('click', ()=> { t.remove(); });
+        container.appendChild(t);
+        // auto-dismiss after 6s
+        setTimeout(()=> { t.classList.add('toast-hide'); setTimeout(()=> t.remove(), 420); }, 6000);
+      }
+
+      const handle = (e) => {
+        if(!e.data) return;
+        let obj;
+        try{ obj = JSON.parse(e.data); }catch(err){ return; }
+        // If the event contains a date/time and it matches the currently viewed/selected date, refresh slots
+        const evtDate = obj.date; // expected yyyy-mm-dd
+        const evtTime = obj.time; // e.g., '9:00 AM'
+        const evtStatus = (obj.status || '').toLowerCase();
+        const isRelevantStatus = ['approved','rescheduled/approved'].includes(evtStatus);
+        const currentKey = selectedDate ? toKey(selectedDate) : null;
+        if(currentKey && evtDate === currentKey){
+          // re-render time slots for the selected date to reflect new approvals/unapprovals
+          renderTimeSlots().then(()=>{
+            // if a specific time was approved for this date, notify user and prevent selection
+            if(evtTime && isRelevantStatus){
+              const key = `${evtDate}|${(evtTime||'').trim().toLowerCase()}`;
+              if(!recentNotifications.has(key)){
+                recentNotifications.add(key);
+                showToast(`${evtTime} has been booked by admin — please choose another slot.`);
+                // if user had selected this time, clear selection
+                if(selectedTime && (selectedTime.trim().toLowerCase() === evtTime.trim().toLowerCase())){
+                  selectedTime = null;
+                  // deselect any selected slot elements
+                  Array.from(document.querySelectorAll('.time-slot.selected')).forEach(el => el.classList.remove('selected'));
+                }
+                // allow future notifications after 10s
+                setTimeout(()=> recentNotifications.delete(key), 10000);
+              }
+            }
+          }).catch(()=>{});
+        }
+        // For safety: if no selectedDate but the calendar is showing the month that contains evtDate, re-render calendar/time slots
+        if(!selectedDate && evtDate){
+          const dparts = evtDate.split('-').map(Number);
+          if(dparts.length === 3){
+            const evtMonth = new Date(dparts[0], dparts[1]-1, dparts[2]);
+            if(evtMonth.getFullYear() === calendarDate.getFullYear() && evtMonth.getMonth() === calendarDate.getMonth()){
+              renderCalendar();
+              renderTimeSlots();
+            }
+          }
+        }
+      };
+      es.addEventListener('appointment', handle);
+      es.addEventListener('appointment:update', handle);
+      es.onerror = () => { /* swallow errors, EventSource will retry */ };
+    }catch(err){ console.warn('SSE not available', err); }
+  }
 
 })();
