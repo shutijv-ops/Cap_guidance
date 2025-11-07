@@ -5,8 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JRMSU Guidance Office</title>
   <link rel="stylesheet" href="../CSS/landing.css" />
+  <link rel="stylesheet" href="../CSS/loader.css" />
 </head>
 <body>
+
+  <!-- Page loader -->
+  <div id="pageLoader" class="page-loader">
+    <div class="loader-card">
+      <div class="loader-spinner" aria-hidden="true"></div>
+      <div class="loader-meta">
+        <div class="loader-title">Loading JRMSU Guidance</div>
+        <div class="loader-sub">Preparing content &nbsp;•&nbsp; Fetching resources</div>
+      </div>
+    </div>
+  </div>
 
   <!-- NAVBAR -->
   <header class="navbar">
@@ -32,6 +44,20 @@
 
   <!-- HERO -->
   <section class="hero">
+    <!-- Skeleton placeholder for hero while loading -->
+    <div class="skeleton-placeholder">
+      <div class="hero-box" style="display:flex; gap:1.5rem; align-items:center;">
+        <div style="flex:1">
+          <div class="skeleton skeleton-line" style="height:28px; width:70%;"></div>
+          <div class="skeleton skeleton-line short" style="height:14px; width:50%; margin-top:12px"></div>
+          <div class="skeleton skeleton-line" style="height:14px; width:80%; margin-top:10px"></div>
+        </div>
+        <div style="width:240px">
+          <div class="skeleton skeleton-box"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="hero-box">
       <div class="hero-text">
         <h1>Your Path to Better Mental Wellness</h1>
@@ -139,5 +165,18 @@
   </div>
 
   <script src="../JS/landing.js"></script>
+    <script>
+      // Hide loader when DOM is ready and on window load
+      function hidePageLoader(){
+        const l = document.getElementById('pageLoader');
+        if(l) l.classList.add('loader-hidden');
+        // hide any skeleton placeholders
+        document.querySelectorAll('.skeleton-placeholder').forEach(el => el.classList.add('loader-hidden'));
+      }
+      document.addEventListener('DOMContentLoaded', hidePageLoader);
+      window.addEventListener('load', hidePageLoader);
+      // export function for page scripts to hide when data ready
+      window.hidePageLoader = hidePageLoader;
+    </script>
 </body>
 </html>

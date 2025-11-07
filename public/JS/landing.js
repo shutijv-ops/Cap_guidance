@@ -3,7 +3,14 @@ const navToggle = document.getElementById("navToggle");
 const navMenu = document.querySelector("nav ul");
 
 navToggle.addEventListener("click", () => {
-  navMenu.style.display = navMenu.style.display === "flex" ? "none" : "flex";
+  navMenu.classList.toggle("active");
+});
+
+// Close menu when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".nav-container")) {
+    navMenu.classList.remove("active");
+  }
 });
 
 // LOGIN MODAL

@@ -5,8 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Counseling Appointment</title>
   <link rel="stylesheet" href="../CSS/appointment.css" />
+  <link rel="stylesheet" href="../CSS/loader.css" />
 </head>
 <body>
+  <!-- Page loader -->
+  <div id="pageLoader" class="page-loader">
+    <div class="loader-card">
+      <div class="loader-spinner" aria-hidden="true"></div>
+      <div class="loader-meta">
+        <div class="loader-title">Preparing appointment</div>
+        <div class="loader-sub">Loading schedule &nbsp;•&nbsp; Initializing form</div>
+      </div>
+    </div>
+  </div>
   <!-- Top bar -->
   <header class="topbar" role="banner">
     <div class="topbar-inner">
@@ -31,6 +42,12 @@
 
   <main class="page" role="main">
     <div class="page-inner">
+
+      <!-- Skeleton placeholder for appointment form area -->
+      <div class="skeleton-placeholder" style="width:100%;">
+        <div class="skeleton-line" style="height:20px; width:45%; margin-bottom:12px;"></div>
+        <div class="skeleton-box" style="height:180px; width:100%;"></div>
+      </div>
 
       <!-- Stepper (progress bar with icons inside circles) -->
       <div class="stepper-wrap" role="navigation" aria-label="Progress">
@@ -360,7 +377,15 @@
     </div>
   <div class="footer-bottom">© <span id="footerYear"></span> Jose Rizal Memorial State University - Dapitan Campus. All rights reserved.</div>
   </footer>
-
+  <script>
+    function hidePageLoader(){ 
+      const l = document.getElementById('pageLoader'); if(l) l.classList.add('loader-hidden'); 
+      document.querySelectorAll('.skeleton-placeholder').forEach(el => el.classList.add('loader-hidden'));
+    }
+    document.addEventListener('DOMContentLoaded', hidePageLoader);
+    window.addEventListener('load', hidePageLoader);
+    window.hidePageLoader = hidePageLoader;
+  </script>
   <script src="../JS/appointment.js"></script>
 </body>
 </html>
