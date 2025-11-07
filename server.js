@@ -213,7 +213,26 @@ mongoose.connect(MONGODB_URI, {
 });
 
 // Middleware to parse JSON bodies
+// JSON parser
 app.use(express.json());
+
+// Serve admin dashboard via an explicit route that enforces authentication.
+// This prevents static middleware from serving the file directly.
+app.get(['/HTML/admin_dashboard.html', '/public/HTML/admin_dashboard.html'], (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    if (!isAdmin) {
+      return res.redirect('/HTML/landing.html');
+    }
+    return res.sendFile(path.join(__dirname, 'public', 'HTML', 'admin_dashboard.html'));
+  } catch (err) {
+    console.warn('Error serving protected admin page', err);
+    return res.redirect('/HTML/landing.html');
+  }
+});
+
+// Serve other static files
 app.use(express.static('public'));
 
 // Get available time slots for a specific date
@@ -290,6 +309,7 @@ app.use((req, res, next) => {
 // Serve static files in two ways so both of these work in the browser:
 //  - /HTML/appointment.html  (recommended)
 //  - /public/HTML/appointment.html (matches VS Code Live Server URLs some users run)
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 

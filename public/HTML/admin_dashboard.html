@@ -9,9 +9,19 @@
   <link href="../CSS/calendar.css" rel="stylesheet" />
   <link href="../CSS/list_view.css" rel="stylesheet" />
   <link href="../CSS/settings.css" rel="stylesheet" />
+  <link href="../CSS/loader.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Page loader (shown while app initializes) -->
+  <div id="pageLoader" class="page-loader">
+    <div class="loader-card">
+      <div class="loader-spinner" aria-hidden="true"></div>
+      <div class="loader-text">Loading dashboard </div>
+      <div class="loader-subtext">Preparing your data &nbsp;•&nbsp; Initializing modules</div>
+    </div>
+  </div>
+
   <div class="app">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -91,6 +101,16 @@
         <!-- ===== Dashboard View (default) ===== -->
         <div class="view" id="view-dashboard" data-view="dashboard">
           <!-- Stat cards -->
+          <!-- Skeleton for stat cards -->
+          <div class="skeleton-placeholder">
+            <div style="display:flex; gap:12px;">
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+            </div>
+          </div>
+
           <div class="cards-grid">
             <div class="card stat-card">
               <div class="card-left">
@@ -154,7 +174,13 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <!-- JS fills -->
+                        <!-- skeleton for table rows -->
+                        <tr class="skeleton-placeholder">
+                          <td colspan="6">
+                            <div class="skeleton" style="height:48px; width:100%; border-radius:8px;"></div>
+                          </td>
+                        </tr>
+                        <!-- JS fills -->
                   </tbody>
                 </table>
               </div>
@@ -353,16 +379,16 @@
 
           <div class="panel">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                <div>
+                <div style="flex:1; min-width:180px;">
                   <h3 style="margin:0">Reports Overview</h3>
                   <p class="text-muted" style="margin:6px 0 0">Monthly appointments and urgency trends. Use filters above to scope the data.</p>
                 </div>
-                <div style="display:flex;gap:12px;align-items:center;">
-                  <div class="card" style="min-width:180px;padding:10px 14px;">
+                <div class="report-stats" style="display:flex; gap:12px; align-items:stretch; flex-wrap:wrap;">
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
                     <div class="stat-title">This Month</div>
                     <div class="stat-num" id="reportMonthCount">—</div>
                   </div>
-                  <div class="card" style="min-width:180px;padding:10px 14px;">
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
                     <div class="stat-title">Avg. Sessions / Month</div>
                     <div class="stat-num" id="reportAvgSession">—</div>
                   </div>
@@ -392,25 +418,27 @@
               </div>
               <!-- College distribution card -->
               <div style="margin-top:16px; display:flex; gap:16px;">
-                <div class="card" style="padding:12px; width:340px; display:flex; flex-direction:column;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div style="font-weight:600;">Appointments by College</div>
-                    <div class="text-muted" style="font-size:13px">Grouped by college/department</div>
+                <div class="charts-row" style="display:flex; flex-direction:row; gap:16px; width:100%; flex-wrap:wrap;">
+                  <div class="card" style="padding:12px; width:340px; min-width:260px; display:flex; flex-direction:column; flex:1;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-weight:600;">Appointments by College</div>
+                      <div class="text-muted" style="font-size:13px">Grouped by college/department</div>
+                    </div>
+                    <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+                      <svg id="collegeDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
+                      <div class="chart-legend" id="collegeLegend" style="flex:1"></div>
+                    </div>
                   </div>
-                  <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
-                    <svg id="collegeDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
-                    <div class="chart-legend" id="collegeLegend" style="flex:1"></div>
-                  </div>
-                </div>
-                <!-- Course-level distribution -->
-                <div class="card" style="padding:12px; flex:1; display:flex; flex-direction:column;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div style="font-weight:600;">Appointments by Course</div>
-                    <div class="text-muted" style="font-size:13px">Individual course breakdown</div>
-                  </div>
-                  <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
-                    <svg id="courseDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
-                    <div class="chart-legend" id="courseLegend" style="flex:1; max-height:240px; overflow-y:auto;"></div>
+                  <!-- Course-level distribution -->
+                  <div class="card" style="padding:12px; width:340px; min-width:260px; display:flex; flex-direction:column; flex:1;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-weight:600;">Appointments by Course</div>
+                      <div class="text-muted" style="font-size:13px">Individual course breakdown</div>
+                    </div>
+                    <div style="margin-top:12px; display:flex; gap:12px; align-items:center;">
+                      <svg id="courseDonut" viewBox="0 0 36 36" class="donut" style="width:120px;height:120px;"></svg>
+                      <div class="chart-legend" id="courseLegend" style="flex:1; max-height:240px; overflow-y:auto;"></div>
+                    </div>
                   </div>
                 </div>
               </div>

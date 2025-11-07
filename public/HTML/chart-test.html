@@ -5,9 +5,36 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         .chart-container {
-            width: 600px;
-            height: 400px;
-            margin: 50px auto;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            margin: 24px auto;
+            box-sizing: border-box;
+            padding: 0 8px;
+        }
+        @media (max-width: 900px) {
+            .chart-container {
+                max-width: 320px;
+                margin: 16px auto;
+                padding: 0 4px;
+            }
+            canvas {
+                width: 100% !important;
+                height: auto !important;
+                max-width: 320px !important;
+                display: block;
+                margin: 0 auto;
+            }
+        }
+        @media (max-width: 480px) {
+            .chart-container {
+                max-width: 140px;
+                margin: 8px auto;
+                padding: 0 2px;
+            }
+            canvas {
+                max-width: 140px !important;
+            }
         }
     </style>
 </head>
