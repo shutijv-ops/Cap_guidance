@@ -64,6 +64,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const studentIdDisplay = document.querySelector('.user-details .student-id');
   const appointmentsList = document.querySelector('.appointments-list');
   const logoutBtn = document.getElementById('logoutBtn');
+  // --- Logout confirmation modal (copied from admin_dashboard.js) ---
+  function showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'modal logout-confirm';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px">
+          <div class="modal-body">
+            <span class="modal-icon">🔒</span>
+            <h3 class="modal-message">${message}</h3>
+            <p class="modal-submessage">You will be redirected to the login page</p>
+          </div>
+          <div class="modal-footer">
+            <button class="button button-secondary" id="cancelBtn">Stay Signed In</button>
+            <button class="button button-primary" id="confirmBtn">Yes, Logout</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      const cancelBtn = modal.querySelector('#cancelBtn');
+      const confirmBtn = modal.querySelector('#confirmBtn');
+      cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        resolve(false);
+      });
+      confirmBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+        resolve(true);
+      });
+    });
+  }
   const footerYear = document.getElementById('footerYear');
   const sortAscBtn = document.getElementById('sortAscBtn');
   const sortDescBtn = document.getElementById('sortDescBtn');
@@ -439,9 +470,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
-  function handleLogout() {
-    sessionStorage.removeItem('studentData');
-    window.location.href = 'landing.html';
+  async function handleLogout() {
+    const confirmLogout = await showConfirmDialog('Confirm Logout', 'Are you sure you want to logout?');
+    if (confirmLogout) {
+      sessionStorage.removeItem('studentData');
+      window.location.href = 'landing.html';
+    }
   }
 
   // Initialize dashboard
