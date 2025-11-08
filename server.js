@@ -98,12 +98,20 @@ async function sendAppointmentEmail(appt, type = 'approved') {
     try {
       // record notification in DB
       if (typeof Notification !== 'undefined') {
+        // Create student full name
+        const studentName = [
+          appt.fname,
+          appt.mname ? appt.mname + ' ' : '',
+          appt.lname,
+          appt.suffix ? ' ' + appt.suffix : ''
+        ].join('').trim();
+
         const notif = await Notification.create({
           type: type === 'rescheduled' ? 'rescheduled' : 'approved',
           refNumber: appt.refNumber,
           email: to,
           status: 'sent',
-          message: subject
+          message: `Email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)} was successfully sent.`
         });
         // broadcast notification over SSE so admin UI can update in realtime
         try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
@@ -115,12 +123,20 @@ async function sendAppointmentEmail(appt, type = 'approved') {
     console.error('Failed to send approval email:', err?.response?.body?.errors || err);
     try {
       if (typeof Notification !== 'undefined') {
+        // Create student full name
+        const studentName = [
+          appt.fname,
+          appt.mname ? appt.mname + ' ' : '',
+          appt.lname,
+          appt.suffix ? ' ' + appt.suffix : ''
+        ].join('').trim();
+
         const notif = await Notification.create({
           type: type === 'rescheduled' ? 'rescheduled' : 'approved',
           refNumber: appt.refNumber,
           email: appt.email,
           status: 'failed',
-          message: (err && err.message) ? err.message : JSON.stringify(err)
+          message: `Failed to send email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)}. Error: ${err.message || 'Unknown error'}`
         });
         try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
       }
@@ -392,19 +408,24 @@ function formatAppointmentData(data) {
 
 // Mongoose model was moved to top of file
 
-// SSE clients for realtime updates
+// SSE (Server-Sent Events) setup
 const sseClients = new Set();
 
-function sendSseEvent(name, data){
-  // build SSE payload without template literals to avoid parser issues
-  const payload = 'event: ' + name + '\n' + 'data: ' + JSON.stringify(data) + '\n\n';
-  for (const res of sseClients) {
+// Utility function to send SSE events to all connected clients
+function sendSseEvent(eventType, data) {
+  const payload = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach(client => {
     try {
-      res.write(payload);
+      if (!client.writableEnded) {
+        client.write(payload);
+      } else {
+        sseClients.delete(client);
+      }
     } catch (e) {
-      // ignore individual client errors
+      console.warn('Failed to send SSE event to client:', e);
+      sseClients.delete(client);
     }
-  }
+  });
 }
 
 // Start server first so static files are always available (frontend can fallback if DB is down)
@@ -497,6 +518,48 @@ app.post('/api/admin/logout', (req, res) => {
   res.setHeader('Set-Cookie', 'admin_auth=; Path=/; HttpOnly; Max-Age=0');
   res.json({ ok: true });
 });
+
+// SSE endpoint
+app.get('/api/notifications/sse', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
+  // Send initial heartbeat
+  res.write('event: connected\ndata: {"status":"connected"}\n\n');
+  
+  // Keep connection alive with heartbeat
+  const heartbeat = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(heartbeat);
+      return;
+    }
+    res.write(':\n\n'); // heartbeat
+  }, 30000);
+  
+  sseClients.add(res);
+  
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+});
+
+// Utility function to send SSE event
+function sendSseEvent(eventType, data) {
+  sseClients.forEach(client => {
+    try {
+      if (!client.writableEnded) {
+        client.write(`event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`);
+      } else {
+        sseClients.delete(client);
+      }
+    } catch (e) {
+      console.warn('Failed to send SSE event to client:', e);
+      sseClients.delete(client);
+    }
+  });
+}
 
 // Connect to MongoDB (no deprecated options)
 mongoose.connect(MONGODB_URI)
@@ -645,18 +708,28 @@ app.post('/api/appointments/request', async (req, res) => {
     res.status(500).json({ error: err.message || 'Server error creating appointment' });
   }
 });
-app.get('/api/appointments/stream', (req, res) => {
-  // headers for SSE
+// SSE endpoint for notifications
+app.get('/api/notifications/sse', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders && res.flushHeaders();
-
-  // send a welcome comment
-  res.write(': connected\n\n');
-
+  
+  // Send initial heartbeat
+  res.write('event: connected\ndata: {"status":"connected"}\n\n');
+  
+  // Keep connection alive with heartbeat
+  const heartbeat = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(heartbeat);
+      return;
+    }
+    res.write(':\n\n'); // heartbeat
+  }, 30000);
+  
   sseClients.add(res);
+  
   req.on('close', () => {
+    clearInterval(heartbeat);
     sseClients.delete(res);
   });
 });
