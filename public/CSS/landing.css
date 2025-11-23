@@ -116,8 +116,10 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: url("https://i.ibb.co/KxHJxR1p/LOGO-ENHANCED.png") no-repeat center center;
-  background-size: 500px;
+  background-image: url("/images/LOGO%20ENHANCED.png"), url("/images/LOGO-ENHANCED.png");
+  background-repeat: no-repeat, no-repeat;
+  background-position: center center, center center;
+  background-size: 500px, 500px;
   opacity: 0.07; /* Lower = softer visibility */
   z-index: -1;
 }
@@ -221,11 +223,45 @@ nav ul li a:hover {
   color: #1e293b;
 }
 
-.hero-img img {
-  max-width: 350px;
+.hero-img {
+  width: 420px;
+  height: var(--hero-img-height, 300px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 420px;
+}
+
+.hero-img img,
+.mental-wellness-illustration {
+  max-width: 420px;
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Class-based fade for the mental wellness illustration */
+.mental-wellness-illustration {
+  transition: opacity 0.5s ease;
+  opacity: 1;
+}
+.mental-wellness-illustration.mw-fade {
+  opacity: 0;
+}
+
+/* Responsive: allow image container to be fluid on smaller screens */
+@media (max-width: 768px) {
+  .hero-img {
+    width: 100%;
+    height: auto;
+    flex: 1 1 100%;
+  }
+  .hero-img img,
+  .mental-wellness-illustration {
+    height: auto;
+  }
 }
 
 /* Buttons */
@@ -307,10 +343,13 @@ nav ul li a:hover {
 .schedule-text p {
   margin: 1rem 0 2rem;
 }
-.schedule-img img {
-  max-width: 350px;
+.schedule-img img,
+.counseling-illustration {
+  max-width: 420px;
   width: 100%;
   height: auto;
+  display: block;
+  margin: 0 auto;
   border-radius: 8px;
 }
 
