@@ -227,6 +227,19 @@
     }
 
     // prepare payload
+    // For Crisis urgency, the scheduling step is skipped on the UI and the
+    // server expects a valid date/time. Auto-fill today's date and a default
+    // time slot so the appointment will pass server validation and be created.
+    let payloadDate = selectedDate ? toKey(selectedDate) : null;
+    let payloadTime = selectedTime || null;
+    const finalUrgency = selectedUrgency || getSelectedUrgency();
+    if(String(finalUrgency).toLowerCase() === 'crisis'){
+      const today = new Date();
+      payloadDate = toKey(today);
+      // Use the same display time format used elsewhere in UI
+      payloadTime = '9:00 AM';
+    }
+
     const payload = {
       studentid: studentid.value.trim(),
       fname: fname.value.trim(),
@@ -237,10 +250,10 @@
       year: year.value,
       contact: contact.value.trim(),
       email: email.value.trim(),
-      urgency: selectedUrgency || getSelectedUrgency(),
+      urgency: finalUrgency,
       reason: reasonInput.value.trim(),
-      date: selectedDate ? toKey(selectedDate) : null,
-      time: selectedTime || null
+      date: payloadDate,
+      time: payloadTime
     };
 
     try{
@@ -264,7 +277,7 @@
       if(payload.urgency === 'Crisis'){
         expectedTimeEl.textContent = 'Marked as CRISIS. A counselor will contact you as soon as possible.';
       } else {
-        expectedTimeEl.textContent = `Your request has been processed. Please wait for counselor's approval through email and SMS for your appointment on ${formatDateLong(selectedDate)} at ${selectedTime}.`;
+        expectedTimeEl.textContent = `Your request has been processed. Please wait for counselor's approval through email for your appointment on ${formatDateLong(selectedDate)} at ${selectedTime}.`;
         // mark locally so UI updates immediately
         markSlotBooked(selectedDate, selectedTime);
       }

@@ -127,3 +127,31 @@ window.addEventListener("click", (e) => {
     profileChooser.style.display = "block";
   }
 });
+
+// Alternate mental wellness illustration images every 3 seconds
+(function(){
+  const img = document.querySelector('.mental-wellness-illustration');
+  if(!img) return;
+
+  const images = ['/images/mental%20wellness.png', '/images/mental%20wellness2.png'];
+  // Determine starting index from current src (fall back to 0)
+  const current = img.getAttribute('src') || '';
+  let idx = images.findIndex(p => p === current);
+  if (idx === -1) idx = 0;
+  const fadeClass = 'mw-fade';
+
+  // Ensure the image starts fully visible
+  img.classList.remove(fadeClass);
+
+  setInterval(() => {
+    // add fade class to fade out
+    img.classList.add(fadeClass);
+    // after fade duration, swap src and remove fade to fade in
+    setTimeout(() => {
+      idx = (idx + 1) % images.length;
+      img.src = images[idx];
+      // remove fade class on next animation frame to trigger fade-in transition
+      requestAnimationFrame(() => img.classList.remove(fadeClass));
+    }, 500);
+  }, 3000);
+})();
