@@ -69,8 +69,10 @@
 
     <div class="main-content">
       <section id="appointments" class="active-section">
-        <h2>My Appointments</h2>
-  <button id="newApptBtn" class="primary-btn">Request New Appointment</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="margin: 0;">My Appointments</h2>
+          <button id="scheduleApptBtn" onclick="sessionStorage.setItem('appointmentAccessFromDashboard', 'true'); window.location.href='appointment.html';" style="background: #d4af37; color: #0a2342; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">Schedule an Appointment</button>
+        </div>
         <!-- Skeleton placeholder for appointments list -->
         <div class="skeleton-placeholder" style="margin-top:12px;">
           <div class="skeleton skeleton-line" style="height:20px; width:40%;"></div>
@@ -89,99 +91,225 @@
           <!-- Appointments will be loaded here -->
           <div class="loading">Loading your appointments...</div>
         </div>
-        <!-- Appointment Request Modal -->
-        <div id="apptModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1000;">
-          <div class="modal-content card step active" style="background: #fff; padding: 2.2rem 2rem 1.5rem 2rem; border-radius: var(--card-radius,14px); max-width: 420px; width: 100%; position: relative; box-shadow: 0 12px 36px rgba(10,34,66,0.10); border: 1px solid #eef5fb;">
-            <span id="closeModal" style="position:absolute; top:14px; right:18px; cursor:pointer; font-size:1.7rem; color:var(--nav,#0a2342);">&times;</span>
-            <div class="card-header" style="margin-bottom: 1.2rem;">
-              <h3 style="font-size:1.15rem; color:var(--nav,#0a2342); margin-bottom:4px;">Request New Appointment</h3>
-              <div class="muted" style="color:var(--muted,#6b7280); font-size:0.97rem;">Fill out the details below to request a session.</div>
-            </div>
-            <form id="apptForm" style="display:flex; flex-direction:column; gap:1rem;">
-              <div style="display:flex; flex-direction:column; gap:0.3rem;">
-                <label style="font-weight:500; color:var(--nav,#0a2342);">Urgency</label>
-                <div id="apptUrgencyGroup" style="margin-top:0.5rem;">
-                  <div class="urgency-grid" style="grid-template-columns:repeat(2,1fr); gap:8px;">
-                    <div class="urgency-option">
-                      <input type="radio" id="appt_crisis" name="apptUrgency" value="Crisis">
-                      <label for="appt_crisis" tabindex="0">
-                        <div class="u-title"><span class="dot red"></span> Crisis</div>
-                        <div class="u-sub">Immediate response required (same day)</div>
-                      </label>
-                    </div>
-                    <div class="urgency-option">
-                      <input type="radio" id="appt_high" name="apptUrgency" value="High">
-                      <label for="appt_high" tabindex="0">
-                        <div class="u-title"><span class="dot orange"></span> High</div>
-                        <div class="u-sub">High priority — response within 24-48 hours</div>
-                      </label>
-                    </div>
-                    <div class="urgency-option">
-                      <input type="radio" id="appt_medium" name="apptUrgency" value="Medium">
-                      <label for="appt_medium" tabindex="0">
-                        <div class="u-title"><span class="dot yellow"></span> Medium</div>
-                        <div class="u-sub">Medium priority — response within 3-5 days</div>
-                      </label>
-                    </div>
-                    <div class="urgency-option">
-                      <input type="radio" id="appt_low" name="apptUrgency" value="Low">
-                      <label for="appt_low" tabindex="0">
-                        <div class="u-title"><span class="dot green"></span> Low</div>
-                        <div class="u-sub">Low priority — next available slot</div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div id="dateTimeFields">
-                <div style="display:flex; flex-direction:column; gap:0.3rem;">
-                  <label for="apptDate" style="font-weight:500; color:var(--nav,#0a2342); margin-bottom:0.4rem;">Select Date</label>
-                  <input type="date" id="apptDate" name="date" required style="padding:0.7rem 1rem; border-radius:12px; border:1.5px solid #d4af37; font-size:1.08rem; background:#fbfdff; box-shadow:0 2px 8px rgba(212,175,55,0.07); outline:none; transition:border 0.2s;">
-                </div>
-                <div style="display:flex; flex-direction:column; gap:0.3rem; margin-top:1rem;">
-                  <label for="apptTime" style="font-weight:500; color:var(--nav,#0a2342); margin-bottom:0.4rem;">Select Time Slot</label>
-                  <div id="timeSlotGrid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem;">
-                    <button type="button" class="time-slot-btn" data-time="09:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">09:00</button>
-                    <button type="button" class="time-slot-btn" data-time="10:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">10:00</button>
-                    <button type="button" class="time-slot-btn" data-time="11:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">11:00</button>
-                    <button type="button" class="time-slot-btn" data-time="13:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">13:00</button>
-                    <button type="button" class="time-slot-btn" data-time="14:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">14:00</button>
-                    <button type="button" class="time-slot-btn" data-time="15:00" style="background:#fff; border:1.5px solid #d4af37; border-radius:10px; padding:0.7rem 0; font-size:1.07rem; color:var(--nav,#0a2342); font-weight:500; cursor:pointer; box-shadow:0 2px 8px rgba(212,175,55,0.07); transition:background 0.2s, border 0.2s;">15:00</button>
-                  </div>
-                  <input type="hidden" id="apptTime" name="time" required>
-                </div>
-              </div>
-              <div style="display:flex; flex-direction:column; gap:0.3rem;">
-                <label for="apptReason" style="font-weight:500; color:var(--nav,#0a2342);">Reason</label>
-                <textarea id="apptReason" name="reason" rows="3" required style="padding:0.5rem 0.7rem; border-radius:8px; border:1px solid #e2e8f0; font-size:1rem; resize:vertical;"></textarea>
-              </div>
-              <button type="submit" class="primary-btn" style="background:var(--gold,#d4af37); color:var(--nav,#0a2342); border:none; border-radius:8px; font-weight:600; font-size:1.07rem; padding:0.7rem 0; box-shadow:0 2px 8px rgba(212,175,55,0.08); cursor:pointer; transition:background 0.2s;">Submit Request</button>
-            </form>
-            <div id="apptMsg" style="margin-top:1rem; color:green; display:none; text-align:center;"></div>
-          </div>
-        </div>
 
-        <!-- Appointment Confirmation Modal -->
-        <div id="confirmationModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1000;">
-          <div class="modal-content card" style="background: #fff; padding: 2.2rem 2rem 1.5rem 2rem; border-radius: var(--card-radius,14px); max-width: 420px; width: 100%; position: relative; box-shadow: 0 12px 36px rgba(10,34,66,0.10); border: 1px solid #eef5fb;">
-            <span id="closeConfirmation" style="position:absolute; top:14px; right:18px; cursor:pointer; font-size:1.7rem; color:var(--nav,#0a2342);">&times;</span>
-            <div class="card-header" style="margin-bottom: 1.2rem;">
-              <h3 style="font-size:1.15rem; color:var(--nav,#0a2342); margin-bottom:4px;">Confirm Appointment Details</h3>
-              <div class="muted" style="color:var(--muted,#6b7280); font-size:0.97rem;">Please review your appointment details below:</div>
-            </div>
-            <div id="appointmentSummary" style="margin-bottom: 1.5rem;">
-              <div class="summary-item" style="margin-bottom: 0.8rem;">
-                <strong>Student Information:</strong>
-                <div id="studentDetails" style="margin-left: 1rem;"></div>
+        <!-- Full Appointment Request Modal (Multi-Step Form) -->
+        <div id="apptModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1000; overflow-y:auto;">
+          <div class="modal-content" style="background: #fff; border-radius: var(--card-radius,14px); max-width: 900px; width: 95%; margin:2rem auto; box-shadow: 0 12px 36px rgba(10,34,66,0.10); border: 1px solid #eef5fb; position: relative;">
+            <span id="closeModal" style="position:absolute; top:14px; right:18px; cursor:pointer; font-size:1.7rem; color:var(--nav,#0a2342); z-index:10;">&times;</span>
+            
+            <!-- Stepper -->
+            <div class="stepper-wrap" role="navigation" aria-label="Progress" style="border-bottom:1px solid #eef5fb;">
+              <div class="stepper" style="--progress: 0%; padding:1.5rem; display:flex; justify-content:space-around; align-items:center;">
+                <div class="step-item active" data-step="1" style="text-align:center; flex:1;">
+                  <div class="circle" style="width:36px; height:36px; border-radius:50%; background:#d4af37; color:#0a2342; display:flex; align-items:center; justify-content:center; font-weight:bold; margin:0 auto; margin-bottom:0.5rem;">1</div>
+                  <div class="label" style="font-size:0.85rem; color:#0a2342;">Urgency</div>
+                </div>
+                <div class="step-item" data-step="2" style="text-align:center; flex:1; opacity:0.5;">
+                  <div class="circle" style="width:36px; height:36px; border-radius:50%; background:#e5e7eb; color:#6b7280; display:flex; align-items:center; justify-content:center; font-weight:bold; margin:0 auto; margin-bottom:0.5rem;">2</div>
+                  <div class="label" style="font-size:0.85rem; color:#6b7280;">Personal Info</div>
+                </div>
+                <div class="step-item" data-step="3" style="text-align:center; flex:1; opacity:0.5;">
+                  <div class="circle" style="width:36px; height:36px; border-radius:50%; background:#e5e7eb; color:#6b7280; display:flex; align-items:center; justify-content:center; font-weight:bold; margin:0 auto; margin-bottom:0.5rem;">3</div>
+                  <div class="label" style="font-size:0.85rem; color:#6b7280;">Schedule</div>
+                </div>
+                <div class="step-item" data-step="4" style="text-align:center; flex:1; opacity:0.5;">
+                  <div class="circle" style="width:36px; height:36px; border-radius:50%; background:#e5e7eb; color:#6b7280; display:flex; align-items:center; justify-content:center; font-weight:bold; margin:0 auto; margin-bottom:0.5rem;">4</div>
+                  <div class="label" style="font-size:0.85rem; color:#6b7280;">Confirm</div>
+                </div>
               </div>
-              <div class="summary-item" style="margin-bottom: 0.8rem;">
-                <strong>Appointment Details:</strong>
-                <div id="appointmentDetails" style="margin-left: 1rem;"></div>
+            </div>
+
+            <!-- Step 1: Urgency -->
+            <div class="step" id="modalStep1" style="display:block; padding:2rem;">
+              <h3 style="margin-bottom:0.5rem; color:#0a2342;">Step 1: Urgency Assessment</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Please select the urgency level that best describes your situation. This helps us prioritize your appointment.</p>
+              
+              <div class="urgency-grid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:1.5rem; margin-bottom:2rem;">
+                <div class="urgency-option" style="padding:0; border:2px solid #e8f0f8; border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); transition: all 0.28s cubic-bezier(0.2, 0.85, 0.3, 1);">
+                  <input type="radio" id="modal_crisis" name="modalUrgency" value="Crisis" style="display:none;">
+                  <label for="modal_crisis" style="cursor:pointer; display:block; padding:1.25rem;">
+                    <div style="font-weight:700; color:#0a2342; font-size:1.05rem; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <span style="width:14px; height:14px; border-radius:50%; background:#ef4444; display:inline-block; box-shadow: 0 4px 10px rgba(239,68,68,0.3);"></span>
+                      Crisis / Emergency
+                    </div>
+                    <div style="font-size:0.94rem; color:#6b7280; line-height:1.6;">Immediate response required (same day). Examples: suicidal thoughts, severe panic, immediate safety concerns.</div>
+                  </label>
+                </div>
+
+                <div class="urgency-option" style="padding:0; border:2px solid #e8f0f8; border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); transition: all 0.28s cubic-bezier(0.2, 0.85, 0.3, 1);">
+                  <input type="radio" id="modal_high" name="modalUrgency" value="High" style="display:none;">
+                  <label for="modal_high" style="cursor:pointer; display:block; padding:1.25rem;">
+                    <div style="font-weight:700; color:#0a2342; font-size:1.05rem; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <span style="width:14px; height:14px; border-radius:50%; background:#fb923c; display:inline-block; box-shadow: 0 4px 10px rgba(251,146,60,0.3);"></span>
+                      High Priority
+                    </div>
+                    <div style="font-size:0.94rem; color:#6b7280; line-height:1.6;">Response within 24-48 hours. Examples: intense academic stress, interpersonal crisis.</div>
+                  </label>
+                </div>
+
+                <div class="urgency-option" style="padding:0; border:2px solid #e8f0f8; border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); transition: all 0.28s cubic-bezier(0.2, 0.85, 0.3, 1);">
+                  <input type="radio" id="modal_medium" name="modalUrgency" value="Medium" style="display:none;">
+                  <label for="modal_medium" style="cursor:pointer; display:block; padding:1.25rem;">
+                    <div style="font-weight:700; color:#0a2342; font-size:1.05rem; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <span style="width:14px; height:14px; border-radius:50%; background:#f59e0b; display:inline-block; box-shadow: 0 4px 10px rgba(245,158,11,0.3);"></span>
+                      Medium Priority
+                    </div>
+                    <div style="font-size:0.94rem; color:#6b7280; line-height:1.6;">Response within 3-5 days. Examples: adjustment issues, ongoing concerns.</div>
+                  </label>
+                </div>
+
+                <div class="urgency-option" style="padding:0; border:2px solid #e8f0f8; border-radius:12px; cursor:pointer; background:linear-gradient(180deg,#fff 0%,#fbfdff 100%); transition: all 0.28s cubic-bezier(0.2, 0.85, 0.3, 1);">
+                  <input type="radio" id="modal_low" name="modalUrgency" value="Low" style="display:none;">
+                  <label for="modal_low" style="cursor:pointer; display:block; padding:1.25rem;">
+                    <div style="font-weight:700; color:#0a2342; font-size:1.05rem; display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                      <span style="width:14px; height:14px; border-radius:50%; background:#10b981; display:inline-block; box-shadow: 0 4px 10px rgba(16,185,129,0.3);"></span>
+                      Low Priority
+                    </div>
+                    <div style="font-size:0.94rem; color:#6b7280; line-height:1.6;">Next available appointment slot. Examples: course planning, general guidance.</div>
+                  </label>
+                </div>
+              </div>
+
+              <div style="margin-bottom:1.5rem;">
+                <label style="display:block; font-weight:700; margin-bottom:0.75rem; color:#0a2342;">Describe your concern or reason for appointment <span style="color:red;">*</span></label>
+                <textarea id="modalReason" maxlength="500" placeholder="Please provide details about your situation or what you'd like to discuss..." style="width:100%; padding:0.9rem; border:2px solid #e6eef7; border-radius:10px; font-size:1rem; font-family:inherit; resize:vertical; min-height:140px; background:#ffffff; transition: all 0.24s ease;"></textarea>
+                <div style="font-size:0.9rem; color:#6b7280; margin-top:0.5rem; text-align:right;"><span id="modalCharCount">0</span> / 500</div>
+              </div>
+
+              <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button type="button" onclick="document.getElementById('apptModal').style.display='none';" style="background:#fff; color:#0a2342; border:2px solid #e8f0f8; padding:0.75rem 1rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem; transition: all 0.24s ease;">← Back</button>
+                <button id="modalToStep2" type="button" style="flex:1; background:#d4af37; color:#0a2342; border:none; padding:0.9rem; border-radius:10px; font-weight:700; cursor:pointer; font-size:1rem; transition: all 0.24s ease; box-shadow: 0 12px 28px rgba(212,175,55,0.15);">Next Step ➜</button>
               </div>
             </div>
-            <div style="display: flex; gap: 1rem;">
-              <button id="editAppointment" class="secondary-btn" style="flex: 1; padding: 0.7rem; border: 1.5px solid var(--gold,#d4af37); background: white; border-radius: 8px; cursor: pointer;">Edit</button>
-              <button id="confirmAppointment" class="primary-btn" style="flex: 1; padding: 0.7rem; background: var(--gold,#d4af37); border: none; border-radius: 8px; cursor: pointer;">Confirm & Submit</button>
+
+            <!-- Step 2: Personal Info -->
+            <div class="step" id="modalStep2" style="display:none; padding:2rem;">
+              <h3 style="margin-bottom:0.5rem; color:#0a2342;">Step 2: Personal Information</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Your information is already pre-filled from your student profile.</p>
+              
+              <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:1rem; margin-bottom:1.5rem;">
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">School ID</label>
+                  <input id="modalStudentId" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">First Name</label>
+                  <input id="modalFname" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Middle Name</label>
+                  <input id="modalMname" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Last Name</label>
+                  <input id="modalLname" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Suffix</label>
+                  <input id="modalSuffix" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Course</label>
+                  <input id="modalCourse" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Year</label>
+                  <input id="modalYear" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Contact</label>
+                  <input id="modalContact" type="text" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+                <div style="grid-column:1 / -1;">
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Email</label>
+                  <input id="modalEmail" type="email" readonly style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:8px; background:#f9fafb; color:#6b7280;">
+                </div>
+              </div>
+
+              <div style="display:flex; gap:1rem;">
+                <button id="modalBackTo1" type="button" style="flex:1; background:white; color:#0a2342; border:1.5px solid #d4af37; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">← Back</button>
+                <button id="modalToStep3" type="button" style="flex:1; background:#d4af37; color:#0a2342; border:none; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">Next Step ➜</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Schedule Selection -->
+            <div class="step" id="modalStep3" style="display:none; padding:2rem;">
+              <h3 style="margin-bottom:0.5rem; color:#0a2342;">Step 3: Schedule Selection</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Choose your preferred date and time slot.</p>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-bottom:1.5rem;">
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Select Date</label>
+                  <input type="date" id="modalApptDate" style="width:100%; padding:0.7rem; border:1.5px solid #d4af37; border-radius:10px; font-size:1rem;">
+                </div>
+                <div>
+                  <label style="display:block; font-weight:500; margin-bottom:0.5rem; color:#0a2342;">Select Time</label>
+                  <input type="text" id="modalApptTime" readonly placeholder="Select a time slot below" style="width:100%; padding:0.7rem; border:1.5px solid #e5e7eb; border-radius:10px; background:#f9fafb; color:#6b7280;">
+                </div>
+              </div>
+
+              <div>
+                <label style="display:block; font-weight:500; margin-bottom:0.8rem; color:#0a2342;">Available Time Slots</label>
+                <div id="modalTimeSlotGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:0.5rem;">
+                  <!-- Time slots will be populated by JavaScript -->
+                </div>
+              </div>
+
+              <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+                <button id="modalBackTo2" type="button" style="flex:1; background:white; color:#0a2342; border:1.5px solid #d4af37; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">← Back</button>
+                <button id="modalToStep4" type="button" style="flex:1; background:#d4af37; color:#0a2342; border:none; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">Next Step ➜</button>
+              </div>
+            </div>
+
+            <!-- Step 4: Confirmation -->
+            <div class="step" id="modalStep4" style="display:none; padding:2rem;">
+              <h3 style="margin-bottom:0.5rem; color:#0a2342;">Step 4: Confirmation</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Review your appointment details and confirm.</p>
+              
+              <div id="modalConfirmationSummary" style="background:#f9fafb; padding:1.5rem; border-radius:10px; margin-bottom:1.5rem; border:1px solid #e5e7eb;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Name</div>
+                    <div id="modalConfName" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Student ID</div>
+                    <div id="modalConfId" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Course</div>
+                    <div id="modalConfCourse" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Year</div>
+                    <div id="modalConfYear" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Urgency</div>
+                    <div id="modalConfUrgency" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div>
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Date & Time</div>
+                    <div id="modalConfDateTime" style="color:#0a2342; font-weight:600;">-</div>
+                  </div>
+                  <div style="grid-column:1 / -1;">
+                    <div style="color:#6b7280; font-size:0.85rem; font-weight:500;">Concern</div>
+                    <div id="modalConfReason" style="color:#0a2342; font-weight:600; margin-top:0.25rem;">-</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" id="modalAgree">
+                <label for="modalAgree" style="font-size:0.95rem; color:#0a2342;">I agree to the appointment terms and conditions</label>
+              </div>
+
+              <div id="apptMsg" style="margin-bottom:1rem; padding:0.75rem; border-radius:8px; text-align:center; display:none;"></div>
+
+              <div style="display:flex; gap:1rem;">
+                <button id="modalBackTo3" type="button" style="flex:1; background:white; color:#0a2342; border:1.5px solid #d4af37; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">← Back</button>
+                <button id="modalSubmitBtn" type="button" style="flex:1; background:#d4af37; color:#0a2342; border:none; padding:0.75rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:1rem;">Submit Appointment</button>
+              </div>
             </div>
           </div>
         </div>

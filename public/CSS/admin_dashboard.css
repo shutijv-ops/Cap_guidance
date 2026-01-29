@@ -1433,3 +1433,158 @@ body::before {
   /* Ensure pills and buttons don't overflow */
   .filter-bar .tabs .pill { display: inline-block; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 }
+/* ========== SETTINGS VIEW STYLES ========== */
+.settings-container {
+  background: var(--card, #fff);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.settings-group {
+  margin-bottom: 2rem;
+}
+
+.settings-group h3 {
+  color: #1f2937;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+.settings-field {
+  margin-bottom: 1.5rem;
+}
+
+.settings-field label {
+  display: block;
+  color: #374151;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.settings-field input[type="number"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.settings-field input[type="number"]:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.settings-field .help-text {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.settings-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-save, .btn-reset {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-save {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-save:hover {
+  background-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-reset {
+  background-color: #6b7280;
+  color: white;
+}
+
+.btn-reset:hover {
+  background-color: #4b5563;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+}
+
+.settings-message {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  display: none;
+  font-weight: 500;
+}
+
+.settings-message.success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-left: 4px solid #10b981;
+}
+
+.settings-message.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-left: 4px solid #ef4444;
+}
+
+.settings-message.info {
+  background-color: #dbeafe;
+  color: #0c2d6b;
+  border-left: 4px solid #3b82f6;
+}
+
+.settings-display {
+  background-color: #f3f4f6;
+  padding: 1.5rem;
+  border-radius: 6px;
+  margin-top: 1.5rem;
+}
+
+.settings-display p {
+  margin: 0.5rem 0;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.settings-display strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+/* Responsive settings */
+@media (max-width: 768px) {
+  .settings-container {
+    padding: 1.5rem;
+  }
+
+  .settings-buttons {
+    flex-direction: column;
+  }
+
+  .btn-save, .btn-reset {
+    width: 100%;
+  }
+}

@@ -60,8 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Elements
   const avatarText = document.querySelector('.avatar-text');
-  const nameDisplay = document.querySelector('.user-details .name');
-  const studentIdDisplay = document.querySelector('.user-details .student-id');
+  const nameDisplay = document.querySelector('.name');
+  const studentIdDisplay = document.querySelector('.student-id');
   const appointmentsList = document.querySelector('.appointments-list');
   const logoutBtn = document.getElementById('logoutBtn');
   // --- Logout confirmation modal (copied from admin_dashboard.js) ---
@@ -97,160 +97,187 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const footerYear = document.getElementById('footerYear');
   const sortAscBtn = document.getElementById('sortAscBtn');
-  const sortDescBtn = document.getElementById('sortDescBtn');
-  const newApptBtn = document.getElementById('newApptBtn');
   const apptModal = document.getElementById('apptModal');
   const closeModal = document.getElementById('closeModal');
-  const apptForm = document.getElementById('apptForm');
-  const apptMsg = document.getElementById('apptMsg');
-  let appointmentsCache = [];
-  // Modal logic
-  // Urgency logic
-  // Time slot selection logic
-  if (timeSlotGrid && apptTimeInput) {
-    timeSlotGrid.addEventListener('click', (e) => {
-      const button = e.target.closest('.time-slot-btn');
-      if (button && !button.disabled) {
-        // Remove active from all
-        Array.from(timeSlotGrid.querySelectorAll('.time-slot-btn')).forEach(btn => {
-          if (!btn.disabled) {
-            btn.style.background = '#fff';
-            btn.style.borderColor = '#d4af37';
-          }
-        });
-          // Remove selected class from all buttons
-          Array.from(timeSlotGrid.querySelectorAll('.time-slot-btn')).forEach(btn => {
-            btn.classList.remove('selected');
-          });
-          
-          // Add selected class to clicked button
-          button.classList.add('selected');
-          apptTimeInput.value = button.getAttribute('data-time');
-      }
-    });
+  
+  // Multi-step modal navigation
+  let currentModalStep = 1;
+  
+  // Modal steps and buttons
+  const modalSteps = [1, 2, 3, 4];
+  const modalStep1 = document.getElementById('modalStep1');
+  const modalStep2 = document.getElementById('modalStep2');
+  const modalStep3 = document.getElementById('modalStep3');
+  const modalStep4 = document.getElementById('modalStep4');
+  
+  // Step 1 buttons
+  const modalToStep2 = document.getElementById('modalToStep2');
+  const modalReason = document.getElementById('modalReason');
+  const modalCharCount = document.getElementById('modalCharCount');
+  
+  // Step 2 buttons
+  const modalBackTo1 = document.getElementById('modalBackTo1');
+  const modalToStep3 = document.getElementById('modalToStep3');
+  const modalStudentId = document.getElementById('modalStudentId');
+  const modalFname = document.getElementById('modalFname');
+  const modalMname = document.getElementById('modalMname');
+  const modalLname = document.getElementById('modalLname');
+  const modalSuffix = document.getElementById('modalSuffix');
+  const modalCourse = document.getElementById('modalCourse');
+  const modalYear = document.getElementById('modalYear');
+  const modalContact = document.getElementById('modalContact');
+  const modalEmail = document.getElementById('modalEmail');
+  
+  // Step 3 buttons
+  const modalBackTo2 = document.getElementById('modalBackTo2');
+  const modalToStep4 = document.getElementById('modalToStep4');
+  const modalApptDate = document.getElementById('modalApptDate');
+  const modalApptTime = document.getElementById('modalApptTime');
+  const modalTimeSlotGrid = document.getElementById('modalTimeSlotGrid');
+  
+  // Step 4 buttons
+  const modalBackTo3 = document.getElementById('modalBackTo3');
+  const modalSubmitBtn = document.getElementById('modalSubmitBtn');
+  const modalAgree = document.getElementById('modalAgree');
+  
+  // Modal navigation function
+  function showModalStep(stepNum) {
+    currentModalStep = stepNum;
+    document.querySelectorAll('[id^="modalStep"]').forEach(el => el.style.display = 'none');
+    document.getElementById(`modalStep${stepNum}`).style.display = 'block';
   }
-  // Set minimum date to today
-  if (apptDate) {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    apptDate.min = `${yyyy}-${mm}-${dd}`;
-    
-    // Update time slots when date changes
-    apptDate.addEventListener('change', () => {
-      if (apptDate.value) {
-        updateTimeSlots(apptDate.value);
-      }
-    });
-  }
-
-  // Urgency change handler (radio group)
-  function handleUrgencyChange() {
-    const val = getSelectedUrgency();
-    if (!dateTimeFields) return;
-    if (val === 'Crisis') {
-      // Auto-schedule for today, disable date/time fields
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      apptDate.value = `${yyyy}-${mm}-${dd}`;
-      apptDate.setAttribute('disabled', 'disabled');
-      updateTimeSlots(`${yyyy}-${mm}-${dd}`);
-      apptTimeInput.value = '09:00';
-      if (timeSlotGrid) {
-        Array.from(timeSlotGrid.querySelectorAll('.time-slot-btn')).forEach(btn => {
-          btn.setAttribute('disabled', 'disabled');
-          btn.style.opacity = '0.5';
-          btn.style.cursor = 'not-allowed';
-          if (btn.getAttribute('data-time') === '09:00') {
-            btn.style.background = 'var(--gold,#d4af37)';
-            btn.style.borderColor = 'var(--nav,#0a2342)';
-          } else {
-            btn.style.background = '#fff';
-            btn.style.borderColor = '#d4af37';
-          }
-        });
-      }
-    } else {
-      document.getElementById('apptDate').removeAttribute('disabled');
-      apptTimeInput.value = '';
-      document.getElementById('apptDate').value = '';
-      if (timeSlotGrid) {
-        Array.from(timeSlotGrid.querySelectorAll('.time-slot-btn')).forEach(btn => {
-          btn.removeAttribute('disabled');
-          btn.style.opacity = '1';
-          btn.style.cursor = 'pointer';
-          btn.style.background = '#fff';
-          btn.style.borderColor = '#d4af37';
-        });
-      }
-    }
-  }
-
-  // Attach listeners to urgency radio inputs
-  if (apptUrgencyInputs && apptUrgencyInputs.length) {
-    apptUrgencyInputs.forEach(inp => inp.addEventListener('change', handleUrgencyChange));
-  }
-  if (newApptBtn && apptModal) {
-    newApptBtn.addEventListener('click', () => {
-      apptModal.style.display = 'flex';
-      apptMsg.style.display = 'none';
-      apptForm.reset();
-    });
-  }
-  if (closeModal && apptModal) {
+  
+  // Close modal
+  if (closeModal) {
     closeModal.addEventListener('click', () => {
       apptModal.style.display = 'none';
     });
   }
-  window.addEventListener('click', (e) => {
-    if (e.target === apptModal) {
-      apptModal.style.display = 'none';
-    }
-  });
-
-  // Form submission logic
-  const confirmationModal = document.getElementById('confirmationModal');
-  const closeConfirmation = document.getElementById('closeConfirmation');
-  const editAppointment = document.getElementById('editAppointment');
-  const confirmAppointment = document.getElementById('confirmAppointment');
-  const studentDetails = document.getElementById('studentDetails');
-  const appointmentDetails = document.getElementById('appointmentDetails');
-
-  let appointmentData = null;
-
-  if (apptForm) {
-    apptForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!studentData) return;
-      const urgency = getSelectedUrgency();
-      let date = document.getElementById('apptDate').value;
-      let time = document.getElementById('apptTime').value;
-      const reason = document.getElementById('apptReason').value;
-      apptMsg.style.display = 'none';
-      // If crisis, auto-schedule for today
-      if (urgency === 'Crisis') {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        date = `${yyyy}-${mm}-${dd}`;
-        time = '09:00';
-      }
-      // Validate that studentData contains required fields
-      const requiredFields = ['studentId','fname','lname','course','year','contact','email'];
-      const missing = requiredFields.filter(f => !studentData[f] || String(studentData[f]).trim() === '');
-      if(missing.length){
-        apptMsg.textContent = `Missing profile data: ${missing.join(', ')}. Please update your profile before requesting an appointment.`;
-        apptMsg.style.color = 'red';
-        apptMsg.style.display = 'block';
+  
+  // Character count for reason
+  if (modalReason) {
+    modalReason.addEventListener('input', () => {
+      modalCharCount.textContent = modalReason.value.length;
+    });
+  }
+  
+  // Step 1 -> 2
+  if (modalToStep2) {
+    modalToStep2.addEventListener('click', () => {
+      const urgency = document.querySelector('input[name="modalUrgency"]:checked')?.value;
+      if (!urgency) {
+        alert('Please select an urgency level');
         return;
       }
-
-      // Store appointment data for submission
-      appointmentData = {
+      if (!modalReason.value.trim()) {
+        alert('Please describe your concern');
+        return;
+      }
+      showModalStep(2);
+    });
+  }
+  
+  // Step 2 -> 1
+  if (modalBackTo1) {
+    modalBackTo1.addEventListener('click', () => showModalStep(1));
+  }
+  
+  // Step 2 -> 3
+  if (modalToStep3) {
+    modalToStep3.addEventListener('click', () => showModalStep(3));
+  }
+  
+  // Step 3 -> 2
+  if (modalBackTo2) {
+    modalBackTo2.addEventListener('click', () => showModalStep(2));
+  }
+  
+  // Step 3 -> 4 (with time slot handling)
+  if (modalToStep4) {
+    modalToStep4.addEventListener('click', () => {
+      if (!modalApptDate.value) {
+        alert('Please select a date');
+        return;
+      }
+      if (!modalApptTime.value) {
+        alert('Please select a time slot');
+        return;
+      }
+      // Populate confirmation step
+      const studentData = JSON.parse(sessionStorage.getItem('studentData')) || {};
+      const urgency = document.querySelector('input[name="modalUrgency"]:checked')?.value;
+      document.getElementById('modalConfName').textContent = `${studentData.fname || ''} ${studentData.lname || ''}`;
+      document.getElementById('modalConfId').textContent = studentData.studentId || '';
+      document.getElementById('modalConfCourse').textContent = studentData.course || '';
+      document.getElementById('modalConfYear').textContent = studentData.year || '';
+      document.getElementById('modalConfUrgency').textContent = urgency || '';
+      const dateObj = new Date(modalApptDate.value);
+      const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('modalConfDateTime').textContent = `${dateStr} at ${modalApptTime.value}`;
+      document.getElementById('modalConfReason').textContent = modalReason.value;
+      showModalStep(4);
+    });
+  }
+  
+  // Step 4 -> 3
+  if (modalBackTo3) {
+    modalBackTo3.addEventListener('click', () => showModalStep(3));
+  }
+  
+  // Time slot selection in Step 3
+  if (modalApptDate) {
+    modalApptDate.addEventListener('change', async () => {
+      if (!modalApptDate.value) return;
+      try {
+        const response = await fetch(`/api/schedules/${modalApptDate.value}`);
+        if (!response.ok) throw new Error('Failed to fetch time slots');
+        const slots = await response.json();
+        
+        modalTimeSlotGrid.innerHTML = '';
+        slots.forEach(slot => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = slot.time;
+          button.style.cssText = `padding:0.5rem 1rem; border:1.5px solid #d4af37; background:#fff; border-radius:8px; cursor:pointer; font-weight:600;`;
+          if (slot.status === 'booked') {
+            button.disabled = true;
+            button.style.background = '#e5e7eb';
+            button.style.borderColor = '#9ca3af';
+            button.style.color = '#6b7280';
+            button.style.cursor = 'not-allowed';
+          }
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!button.disabled) {
+              document.querySelectorAll('#modalTimeSlotGrid button').forEach(b => {
+                b.style.background = '#fff';
+                b.style.borderColor = '#d4af37';
+              });
+              button.style.background = '#d4af37';
+              button.style.borderColor = '#0a2342';
+              modalApptTime.value = slot.time;
+            }
+          });
+          modalTimeSlotGrid.appendChild(button);
+        });
+      } catch (error) {
+        console.error('Error fetching time slots:', error);
+      }
+    });
+  }
+  
+  // Submit appointment
+  if (modalSubmitBtn) {
+    modalSubmitBtn.addEventListener('click', async () => {
+      if (!modalAgree.checked) {
+        alert('Please agree to the terms and conditions');
+        return;
+      }
+      
+      const studentData = JSON.parse(sessionStorage.getItem('studentData')) || {};
+      const urgency = document.querySelector('input[name="modalUrgency"]:checked')?.value;
+      
+      const appointmentData = {
         studentid: studentData.studentId,
         fname: studentData.fname,
         mname: studentData.mname || '',
@@ -260,91 +287,38 @@ document.addEventListener('DOMContentLoaded', () => {
         year: studentData.year,
         contact: studentData.contact,
         email: studentData.email,
-        date,
-        time,
-        reason,
-        urgency
+        date: modalApptDate.value,
+        time: modalApptTime.value,
+        reason: modalReason.value,
+        urgency: urgency
       };
-
-      // Show confirmation modal with details
-      studentDetails.innerHTML = `
-        <p>Name: ${appointmentData.fname} ${appointmentData.mname ? appointmentData.mname + ' ' : ''}${appointmentData.lname}${appointmentData.suffix ? ' ' + appointmentData.suffix : ''}</p>
-        <p>ID: ${appointmentData.studentid}</p>
-        <p>Course: ${appointmentData.course}</p>
-        <p>Year: ${appointmentData.year}</p>
-        <p>Contact: ${appointmentData.contact}</p>
-        <p>Email: ${appointmentData.email}</p>
-      `;
-
-      appointmentDetails.innerHTML = `
-        <p>Date: ${new Date(appointmentData.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        <p>Time: ${appointmentData.time}</p>
-        <p>Urgency: <span class="${appointmentData.urgency.toLowerCase()}-urgency">${appointmentData.urgency}</span></p>
-        <p>Reason: ${appointmentData.reason}</p>
-      `;
-
-      apptModal.style.display = 'none';
-      confirmationModal.style.display = 'flex';
-      return;
-    });
-  }
-
-  // Handle confirmation modal actions
-  if (closeConfirmation) {
-    closeConfirmation.addEventListener('click', () => {
-      confirmationModal.style.display = 'none';
-      apptModal.style.display = 'flex';
-    });
-  }
-
-  if (editAppointment) {
-    editAppointment.addEventListener('click', () => {
-      confirmationModal.style.display = 'none';
-      apptModal.style.display = 'flex';
-    });
-  }
-
-  if (confirmAppointment) {
-    confirmAppointment.addEventListener('click', async () => {
+      
       try {
-        const res = await fetch('/api/appointments/request', {
+        const response = await fetch('/api/appointments/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(appointmentData)
         });
-        if (!res.ok) {
-          // try to show server-provided message
-          let errBody = null;
-          try { errBody = await res.json(); } catch (e) { /* ignore */ }
-          const serverMsg = errBody && (errBody.error || errBody.message) ? (errBody.error || errBody.message) : 'Failed to submit request';
-          apptMsg.textContent = serverMsg;
-          apptMsg.style.color = 'red';
-          apptMsg.style.display = 'block';
-          confirmationModal.style.display = 'none';
-          apptModal.style.display = 'flex';
+        
+        if (!response.ok) {
+          const error = await response.json();
+          alert(error.error || 'Failed to submit appointment');
           return;
         }
-
-        const result = await res.json();
-        apptMsg.textContent = 'Appointment request submitted successfully! Reference number: ' + result.refNumber;
-        apptMsg.style.color = 'green';
-        apptMsg.style.display = 'block';
-        apptForm.reset();
-        confirmationModal.style.display = 'none';
-        apptModal.style.display = 'flex';
         
-        setTimeout(() => {
-          apptModal.style.display = 'none';
-          renderAppointments(studentData.studentId, studentData.email);
-        }, 2000);
-      } catch (err) {
-        console.error('Error submitting appointment request:', err);
-        apptMsg.textContent = 'Error submitting request. Please try again.';
-        apptMsg.style.color = 'red';
-        apptMsg.style.display = 'block';
+        const result = await response.json();
+        alert('Appointment submitted successfully! Reference: ' + result.refNumber);
+        apptModal.style.display = 'none';
+        renderAppointments(studentData.studentId, studentData.email);
+      } catch (error) {
+        console.error('Error submitting appointment:', error);
+        alert('Error submitting appointment');
       }
     });
   }
+  
+  
+  let appointmentsCache = [];
 
   // Update footer year
   if (footerYear) {
@@ -358,10 +332,13 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'landing.html';
       return null;
     }
-    return JSON.parse(studentData);
+    const parsed = JSON.parse(studentData);
+    console.log('DEBUG: checkAuth() returning:', parsed);
+    return parsed;
   }
 
   function updateUserInfo(data) {
+    console.log('DEBUG: updateUserInfo() called with:', data);
     if (!data) return;
     
     if (avatarText) {
@@ -370,9 +347,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nameDisplay) {
       const fullName = `${data.fname} ${data.mname ? data.mname + ' ' : ''}${data.lname}${data.suffix ? ' ' + data.suffix : ''}`;
       nameDisplay.textContent = fullName;
+      console.log('DEBUG: Set nameDisplay to:', fullName);
     }
     if (studentIdDisplay) {
       studentIdDisplay.textContent = data.studentId;
+      console.log('DEBUG: Set studentIdDisplay to:', data.studentId);
     }
   }
 
@@ -399,6 +378,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function renderAppointments(studentId, email) {
     if (!appointmentsList) return;
+    
+    console.log('DEBUG: renderAppointments() called with studentId:', studentId, 'email:', email);
 
     try {
       const response = await fetch('/api/appointments/student', {
@@ -409,11 +390,14 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ studentId, email })
       });
 
+      console.log('DEBUG: Appointments response status:', response.status);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch appointments');
       }
 
       const appointments = await response.json();
+      console.log('DEBUG: Appointments fetched:', appointments);
       appointmentsCache = appointments;
       renderSortedAppointments('desc');
     } catch (error) {
@@ -432,9 +416,6 @@ document.addEventListener('DOMContentLoaded', () => {
       appointmentsList.innerHTML = `
         <div style="text-align: center; padding: 2rem;">
           <p>No appointments found.</p>
-          <a href="appointment.html" class="btn" style="display: inline-block; margin-top: 1rem; padding: 0.5rem 1rem; background: var(--nav); color: white; text-decoration: none; border-radius: 0.375rem;">
-            Schedule an Appointment
-          </a>
         </div>
       `;
       return;

@@ -3,6 +3,35 @@
    skipping schedule for 'Crisis', confirmation, and submission.
 */
 
+// Check if student is logged in and accessing from dashboard
+function checkStudentLogin() {
+  const studentData = sessionStorage.getItem('studentData');
+  const accessedFromDashboard = sessionStorage.getItem('appointmentAccessFromDashboard');
+  
+  if (!studentData) {
+    // Not logged in - redirect to login
+    window.location.href = '/HTML/landing.html?showLogin=true';
+    return false;
+  }
+  
+  // Clear the access flag after checking
+  sessionStorage.removeItem('appointmentAccessFromDashboard');
+  
+  return true;
+}
+
+// Set a flag when accessing from dashboard
+function setDashboardAccess() {
+  sessionStorage.setItem('appointmentAccessFromDashboard', 'true');
+}
+
+// Run login check immediately
+if (!checkStudentLogin()) {
+  // Stop execution and show loading message
+  document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#f5f5f5;"><div style="text-align:center;"><p style="font-size:18px; color:#333;">Redirecting to login...</p></div></div>';
+  throw new Error('Unauthorized access - student not logged in');
+}
+
 (() => {
   // Elements
   const steps = Array.from(document.querySelectorAll('.step'));

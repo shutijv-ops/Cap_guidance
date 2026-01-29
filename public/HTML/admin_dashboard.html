@@ -49,9 +49,6 @@
       </nav>
 
       <div class="nav-footer">
-        <button id="logoutBtn" class="nav-item logout-btn">
-          <span class="icon">🚪</span>Logout
-        </button>
       </div>
       
     </aside>
@@ -92,6 +89,12 @@
               <div class="role">Admin</div>
             </div>
             <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#6b7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+
+          <!-- Profile Dropdown Menu -->
+          <div id="profileDropdown" style="position:absolute; top:100%; right:0; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.1); min-width:180px; z-index:1000; display:none; margin-top:0.5rem;">
+            <button id="profileOption" style="display:block; width:100%; text-align:left; padding:0.75rem 1rem; border:none; background:none; cursor:pointer; font-size:0.95rem; color:#374151; transition:all 0.2s ease; border-bottom:1px solid #e5e7eb;">👤 Profile</button>
+            <button id="logoutOption" style="display:block; width:100%; text-align:left; padding:0.75rem 1rem; border:none; background:none; cursor:pointer; font-size:0.95rem; color:#dc2626; transition:all 0.2s ease;">🚪 Logout</button>
           </div>
         </div>
       </header>
@@ -448,83 +451,90 @@
         <!-- ===== Settings View ===== -->
         <div class="view hidden" id="view-settings" data-view="settings">
           <div class="page-header">
-            <h2>Settings</h2>
+            <h2>⚙️ Settings</h2>
           </div>
 
-          <div class="panel">
-            <h3>General Settings</h3>
-            <div style="display:flex;gap:12px;flex-direction:column;margin-top:12px;">
-              <label>Site Name <input value="CounselConnect" /></label>
-              <label>Admin Email <input value="admin@counselconnect.local" /></label>
-              <div style="display:flex;gap:8px;">
-                <button class="btn primary">Save Changes</button>
-                <button class="btn ghost">Reset</button>
+          <div class="settings-container">
+            <!-- Status Message -->
+            <div id="settingsMessage" class="settings-message" style="display:none;"></div>
+
+            <!-- Threshold Settings Group -->
+            <div class="settings-group">
+              <h3>🎯 Session Thresholds</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Configure alert thresholds for student appointments to help identify patterns and manage workload.</p>
+
+              <!-- Session Threshold -->
+              <div class="settings-field">
+                <label for="sessionThreshold">Session Count Threshold</label>
+                <input type="number" id="sessionThreshold" min="1" max="50" value="5" />
+                <div class="help-text">Number of sessions before generating alerts (default: 5)</div>
+              </div>
+
+              <!-- Warning Threshold -->
+              <div class="settings-field">
+                <label for="warningThreshold">Warning Level Threshold</label>
+                <input type="number" id="warningThreshold" min="1" max="100" value="10" />
+                <div class="help-text">Number of sessions for warning-level alerts (default: 10)</div>
+              </div>
+
+              <!-- Critical Threshold -->
+              <div class="settings-field">
+                <label for="criticalThreshold">Critical Level Threshold</label>
+                <input type="number" id="criticalThreshold" min="1" max="100" value="15" />
+                <div class="help-text">Number of sessions for critical-level alerts (default: 15)</div>
               </div>
             </div>
-          </div>
 
-          <div class="panel">
-            <h3>Add New Counselor</h3>
-            <form id="addCounselorForm" style="display:flex;gap:12px;flex-direction:column;margin-top:12px;">
-              <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:12px;">
-                <label>
-                  Title
-                  <select name="title" required>
-                    <option value="">Select</option>
-                    <option value="Mr.">Mr.</option>
-                    <option value="Mrs.">Mrs.</option>
-                    <option value="Ms.">Ms.</option>
-                    <option value="Dr.">Dr.</option>
-                  </select>
-                </label>
-                <label>
-                  First Name
-                  <input type="text" name="firstName" required />
-                </label>
-                <label>
-                  Last Name
-                  <input type="text" name="lastName" required />
-                </label>
+            <!-- Settings Display -->
+            <div id="settingsDisplay" class="settings-display">
+              <p><strong>Current Settings:</strong></p>
+              <p>Session Threshold: <span id="displaySessionThreshold">—</span></p>
+              <p>Warning Threshold: <span id="displayWarningThreshold">—</span></p>
+              <p>Critical Threshold: <span id="displayCriticalThreshold">—</span></p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="settings-buttons">
+              <button id="saveSettingsBtn" class="btn-save">💾 Save Settings</button>
+              <button id="resetSettingsBtn" class="btn-reset">🔄 Reset to Defaults</button>
+            </div>
+
+            <!-- Original Threshold Control (Kept for reference) -->
+            <div class="settings-group" style="margin-top:3rem; padding-top:2rem; border-top:2px solid #e5e7eb;">
+              <h3>Legacy: Daily Request Limit</h3>
+              <p style="color:#6b7280; margin-bottom:1.5rem; font-size:0.95rem;">Control the maximum number of appointment requests that students can submit per day.</p>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:1.5rem;">
+                <!-- Current Threshold Display -->
+                <div style="background:#f9fafb; padding:1.5rem; border-radius:10px; border:1px solid #e5e7eb;">
+                  <div style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Current Threshold</div>
+                  <div id="currentThresholdDisplay" style="font-size:2.5rem; font-weight:700; color:#0a2342; margin:1rem 0;">—</div>
+                  <p style="color:#6b7280; font-size:0.9rem; margin:0;">Requests per student per day</p>
+                </div>
+
+                <!-- Threshold Control -->
+                <div style="background:#f0f9ff; padding:1.5rem; border-radius:10px; border:2px solid #d4af37;">
+                  <label style="display:block; font-weight:600; color:#0a2342; margin-bottom:0.75rem;">Set Daily Limit</label>
+                  <div style="display:flex; gap:0.75rem;">
+                    <input type="number" id="thresholdInput" min="1" max="20" value="3" style="flex:1; padding:0.75rem; border:2px solid #e5e7eb; border-radius:8px; font-size:1rem; font-weight:600;" />
+                    <button id="saveThresholdBtn" class="btn" style="background:#d4af37; color:#0a2342; padding:0.75rem 1.5rem; border:none; border-radius:8px; font-weight:700; cursor:pointer; transition:all 0.24s ease;">Save</button>
+                  </div>
+                  <p style="color:#6b7280; font-size:0.85rem; margin-top:0.75rem; margin-bottom:0;">Range: 1-20 requests per day</p>
+                </div>
               </div>
-              <label>
-                Middle Name (optional)
-                <input type="text" name="middleName" />
-              </label>
-              <label>
-                Email
-                <input type="email" name="email" required />
-              </label>
-              <label>
-                Username
-                <input type="text" name="username" required />
-              </label>
-              <label>
-                Password
-                <input type="password" name="password" required />
-              </label>
-              <div style="display:flex;gap:8px;">
-                <button type="submit" class="btn primary">Add Counselor</button>
-                <button type="reset" class="btn ghost">Reset</button>
+
+              <!-- Status Message -->
+              <div id="thresholdStatusMessage" style="margin-top:1.5rem; padding:1rem; border-radius:8px; text-align:center; font-weight:600; display:none;"></div>
+
+              <!-- Recent Activity Log -->
+              <div style="margin-top:2rem;">
+                <h4 style="color:#0a2342; margin-bottom:1rem;">Settings History</h4>
+                <div style="background:#f9fafb; padding:1rem; border-radius:8px; border:1px solid #e5e7eb;">
+                  <ul id="thresholdHistoryList" style="list-style:none; padding:0; margin:0;">
+                    <li style="color:#6b7280; font-size:0.9rem; padding:0.75rem 0; border-bottom:1px solid #e5e7eb;">No changes yet</li>
+                  </ul>
+                </div>
               </div>
-            </form>
-          </div>
-          
-          <div class="panel">
-            <h3>Manage Counselors</h3>
-            <div class="table-wrap">
-              <table class="requests-table" id="settingsCounselorsTable">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Will be populated by JS -->
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
@@ -562,6 +572,68 @@
     </div>
     <div class="modal-footer">
       <button class="btn ghost" id="closeAppointmentModalBtn2">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Counselor Profile Modal -->
+<div id="counselorProfileModal" class="modal" style="display:none; align-items:center; justify-content:center;" onclick="if(event.target.id === 'counselorProfileModal') closeCounselorProfile();">
+  <div class="modal-content" style="width:100%; max-width:500px; background:#fff; border-radius:12px; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation();">
+    <div class="modal-header" style="text-align:center; margin-bottom:1.5rem; border-bottom:2px solid #e5e7eb; padding-bottom:1rem;">
+      <h2 style="margin:0; color:#0a2342; font-size:1.5rem;">Counselor Profile</h2>
+    </div>
+    <div class="modal-body" style="margin-bottom:1.5rem;">
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <div id="counselorAvatar" style="width:80px; height:80px; background:linear-gradient(135deg,#34d399,#10b981); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:2rem; font-weight:700; margin:0 auto;">MK</div>
+      </div>
+      <div style="display:grid; gap:1rem;">
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">First Name</label>
+          <input id="counselorFirstNameInput" type="text" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorFirstNameDisplay" style="font-size:1rem; color:#0a2342; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Middle Name</label>
+          <input id="counselorMiddleNameInput" type="text" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorMiddleNameDisplay" style="font-size:1rem; color:#0a2342; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Last Name</label>
+          <input id="counselorLastNameInput" type="text" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorLastNameDisplay" style="font-size:1rem; color:#0a2342; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Title</label>
+          <input id="counselorTitleInput" type="text" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorTitleDisplay" style="font-size:1rem; color:#374151; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Email</label>
+          <input id="counselorEmailInput" type="email" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorEmailDisplay" style="font-size:1rem; color:#374151; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Role</label>
+          <input id="counselorRoleInput" type="text" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+          <div id="counselorRoleDisplay" style="font-size:1rem; color:#374151; margin-top:0.25rem;">—</div>
+        </div>
+        <div>
+          <label style="font-size:0.85rem; color:#6b7280; text-transform:uppercase; font-weight:600;">Status</label>
+          <select id="counselorStatusInput" style="font-size:1rem; color:#0a2342; padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; display:none; width:100%;">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+          <div id="counselorStatusDisplay" style="font-size:1rem; color:#374151; margin-top:0.25rem;">
+            <span id="counselorStatusBadge" style="display:inline-block; padding:0.375rem 0.75rem; border-radius:20px; font-size:0.85rem; font-weight:600;">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #e5e7eb; padding-top:1rem;">
+      <button id="editCounselorBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#0a2342; color:#fff; font-weight:600; border:none;">Edit</button>
+      <button id="saveCounselorBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#10b981; color:#fff; font-weight:600; border:none; display:none;">Save</button>
+      <button id="cancelEditBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#ef4444; color:#fff; font-weight:600; border:none; display:none;">Cancel</button>
+      <button id="closeCounselorModalBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; border:2px solid #e5e7eb; background:#fff; color:#0a2342; font-weight:600;">Close</button>
     </div>
   </div>
 </div>

@@ -1,3 +1,17 @@
+// Check login and redirect to dashboard or show login modal
+function checkLoginAndRedirect() {
+  const studentData = sessionStorage.getItem('studentData');
+  
+  if (studentData) {
+    // Already logged in - redirect to dashboard
+    sessionStorage.setItem('appointmentAccessFromDashboard', 'true');
+    window.location.href = '/HTML/student_dashboard.html';
+  } else {
+    // Not logged in - show login modal
+    document.getElementById('loginModal').style.display = 'flex';
+  }
+}
+
 // NAV MENU TOGGLE
 const navToggle = document.getElementById("navToggle");
 const navMenu = document.querySelector("nav ul");
@@ -27,6 +41,15 @@ profileBtn.addEventListener("click", (e) => {
   loginModal.style.display = "flex";
 });
 
+// Check if redirected from appointment page (show login modal automatically)
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('showLogin') === 'true') {
+  loginModal.style.display = "flex";
+  profileChooser.style.display = "block";
+  studentForm.style.display = "none";
+  adminForm.style.display = "none";
+}
+
 // Choose Student
 chooseStudentBtn.addEventListener("click", () => {
   profileChooser.style.display = "none";
@@ -46,7 +69,7 @@ if(adminLoginBtn){
     const user = document.getElementById('adminUser').value || '';
     const pass = document.getElementById('adminPass').value || '';
     try{
-      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
+      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }), credentials: 'include' });
       if(!res.ok){
         const e = await res.json().catch(()=>({}));
         alert(e.error || 'Login failed');
@@ -66,57 +89,139 @@ const studentLoginBtn = document.getElementById('studentLoginBtn');
 if(studentLoginBtn) {
   studentLoginBtn.addEventListener('click', async () => {
     const schoolId = document.getElementById('schoolId').value?.trim();
-    const email = document.getElementById('email').value?.trim();
+    const password = document.getElementById('studentPassword').value?.trim();
 
-    if (!schoolId || !email) {
-      alert('Please enter both School ID and Email');
+    if (!schoolId || !password) {
+      alert('Please enter both School ID and Password');
       return;
     }
 
     try {
-      // Verify student has existing appointments
-      const res = await fetch('/api/appointments/student', {
+      // Call new student login API
+      const res = await fetch('/api/student/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: schoolId, email })
+        body: JSON.stringify({ schoolId, password })
       });
 
       if (!res.ok) {
         const error = await res.json();
-        alert(error.error || 'Login failed. Make sure you have an existing appointment.');
+        alert(error.error || 'Login failed');
         return;
       }
 
-      const appointments = await res.json();
-      if (!appointments || appointments.length === 0) {
-        alert('No appointments found. Please schedule an appointment first.');
-        return;
-      }
+      const data = await res.json();
+      const student = data.student;
 
-      // Get the most recent appointment for student info
-      const latestAppointment = appointments[0];
-      
-      // Store complete student info from their existing appointment
+      // Store student data in session
       sessionStorage.setItem('studentData', JSON.stringify({
-        studentId: schoolId,
-        email: email,
-        fname: latestAppointment.fname,
-        mname: latestAppointment.mname || '',
-        lname: latestAppointment.lname,
-        suffix: latestAppointment.suffix || '',
-        course: latestAppointment.course,
-        year: latestAppointment.year,
-        contact: latestAppointment.contact
+        id: student.id,
+        studentId: student.schoolId,
+        schoolId: student.schoolId,
+        fname: student.firstName,
+        mname: student.middleName || '',
+        lname: student.lastName,
+        suffix: student.suffix || '',
+        course: student.course || '',
+        year: student.year || '',
+        contact: student.contact || '',
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        fullName: student.fullName,
+        passwordChanged: student.passwordChanged
       }));
 
-      // Redirect to student dashboard
-      window.location.href = '/HTML/student_dashboard.html';
+      // If password hasn't been changed, show password change modal
+      if (!student.passwordChanged) {
+        document.getElementById('loginModal').style.display = 'none';
+        document.getElementById('passwordChangeModal').style.display = 'flex';
+        document.getElementById('currentPassword').focus();
+      } else {
+        // Redirect to student dashboard
+        window.location.href = '/HTML/student_dashboard.html';
+      }
     } catch(err) {
       console.error('Student login error:', err);
       alert('Login failed. Please try again.');
     }
   });
 }
+
+// Password Change Modal
+const changePasswordBtn = document.getElementById('changePasswordBtn');
+const passwordChangeModal = document.getElementById('passwordChangeModal');
+if (changePasswordBtn) {
+  changePasswordBtn.addEventListener('click', async () => {
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const messageDiv = document.getElementById('passwordChangeMessage');
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      messageDiv.innerHTML = '<span style="color: red;">All fields are required</span>';
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      messageDiv.innerHTML = '<span style="color: red;">Password must be at least 6 characters</span>';
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      messageDiv.innerHTML = '<span style="color: red;">Passwords do not match</span>';
+      return;
+    }
+
+    try {
+      const studentData = JSON.parse(sessionStorage.getItem('studentData'));
+      const res = await fetch('/api/student/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: studentData.id,
+          oldPassword: currentPassword,
+          newPassword: newPassword
+        })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        messageDiv.innerHTML = `<span style="color: red;">${error.error || 'Failed to change password'}</span>`;
+        return;
+      }
+
+      // Update password changed flag in session
+      studentData.passwordChanged = true;
+      sessionStorage.setItem('studentData', JSON.stringify(studentData));
+
+      messageDiv.innerHTML = '<span style="color: green;">Password changed successfully! Redirecting...</span>';
+      
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/HTML/student_dashboard.html';
+      }, 2000);
+
+    } catch(err) {
+      console.error('Password change error:', err);
+      messageDiv.innerHTML = '<span style="color: red;">An error occurred. Please try again.</span>';
+    }
+  });
+}
+
+// Close password change modal when clicking outside
+window.addEventListener("click", (e) => {
+  if (e.target === passwordChangeModal) {
+    // Don't allow closing without changing password on first login
+    const studentData = JSON.parse(sessionStorage.getItem('studentData'));
+    if (!studentData?.passwordChanged) {
+      alert('You must change your password before proceeding');
+      return;
+    }
+    passwordChangeModal.style.display = "none";
+  }
+});
 
 // Close modal when clicking outside
 window.addEventListener("click", (e) => {

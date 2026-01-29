@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
+const Student = require('./models/students');
 const sgMail = require('@sendgrid/mail');
 
 // Initialize SendGrid
@@ -452,6 +453,16 @@ app.post('/api/admin/login', (req, res) => {
   return res.status(401).json({ error: 'invalid credentials' });
 });
 
+// Check admin authentication
+app.get('/api/admin/check', (req, res) => {
+  const cookie = req.headers.cookie || '';
+  const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+  if (!isAdmin) {
+    return res.status(401).json({ error: 'not authenticated' });
+  }
+  return res.json({ ok: true });
+});
+
 // Counselor API endpoints
 app.get('/api/counselors', async (req, res) => {
   try {
@@ -560,11 +571,6 @@ function sendSseEvent(eventType, data) {
     }
   });
 }
-
-// Connect to MongoDB (no deprecated options)
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('Failed to connect to MongoDB:', err.message));
 
 // API: get booked slots for a date
 app.get('/api/bookedSlots', async (req, res) => {
@@ -908,6 +914,17 @@ app.get('/api/appointments', async (req, res) => {
   }catch(err){
     console.error(err);
     res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Get all students from database
+app.get('/api/students', async (req, res) => {
+  try {
+    const students = await Student.find().sort({ fullName: 1 }).select('schoolId fullName course email').lean();
+    res.json({ students: students || [] });
+  } catch (err) {
+    console.error('Error fetching students:', err);
+    res.status(500).json({ error: 'Failed to fetch students' });
   }
 });
 
