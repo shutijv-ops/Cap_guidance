@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JRMSU Counseling System - Architecture Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .diagram-section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            background: #f9f9f9;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .text-diagram {
+            background: #f5f5f5;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            line-height: 1.6;
+        }
+        
+        .component-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .component-table thead {
+            background: #667eea;
+            color: white;
+        }
+        
+        .component-table th,
+        .component-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .component-table tbody tr:hover {
+            background: #f0f0f0;
+        }
+        
+        .component-table tbody tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin: 2px;
+        }
+        
+        .badge.get {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .badge.post {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .badge.put {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .badge.delete {
+            background: #f44336;
+            color: white;
+        }
+        
+        .flow-diagram {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .flow-box {
+            background: #f5f5f5;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .flow-box.client {
+            border-color: #667eea;
+            background: #e3f2fd;
+        }
+        
+        .flow-box.server {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+        
+        .flow-box.database {
+            border-color: #764ba2;
+            background: #f3e5f5;
+        }
+        
+        .flow-arrow {
+            text-align: center;
+            padding: 10px;
+            font-size: 1.5em;
+            color: #667eea;
+        }
+        
+        .footer {
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #ddd;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .tech-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .tech-box h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .tech-box ul {
+            list-style: none;
+        }
+        
+        .tech-box li {
+            padding: 5px 0;
+            margin-left: 20px;
+            position: relative;
+        }
+        
+        .tech-box li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .flow-diagram {
+                grid-template-columns: 1fr;
+            }
+            
+            .tech-stack {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .print-info {
+            background: #e7f3ff;
+            border: 1px solid #2196F3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎓 JRMSU Counseling Appointment System</h1>
+            <p>Comprehensive System Architecture & Data Flow Diagram</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <!-- Print Info -->
+            <div class="print-info">
+                <strong>💡 Tip:</strong> You can print this page to PDF (Press Ctrl+P or Cmd+P) to save the diagrams as a visual document.
+            </div>
+            
+            <!-- System Overview Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">📊 System Architecture Overview</h2>
+                
+                <div class="mermaid">
+graph LR
+    subgraph CLIENT["CLIENT LAYER"]
+        direction TB
+        SP["📱 Student Portal<br/>Public Access"]
+        AP["🔒 Admin Portal<br/>Protected"]
+        CP["🔒 Counselor Portal<br/>Protected"]
+    end
+    
+    subgraph SERVER["APPLICATION SERVER<br/>Node.js/Express.js"]
+        direction TB
+        AUTH["🔐 Authentication"]
+        APPT["📅 Appointments"]
+        COUNSEL["👨‍💼 Counselors"]
+        SCHED["📆 Schedules"]
+        NOTIF["🔔 Notifications"]
+        REP["📊 Reports"]
+    end
+    
+    subgraph DATA["DATA LAYER"]
+        direction TB
+        MONGO[("🗄️ MongoDB<br/>Database")]
+        JSON["📄 JSON<br/>Fallback"]
+    end
+    
+    subgraph EXT["EXTERNAL SERVICES"]
+        MAIL["📧 SendGrid<br/>Email API"]
+    end
+    
+    CLIENT -->|HTTP/HTTPS| SERVER
+    SERVER -->|Mongoose ODM| DATA
+    SERVER -->|API Call| MAIL
+    
+    style CLIENT fill:#e3f2fd,stroke:#667eea,stroke-width:3px
+    style SERVER fill:#fff3e0,stroke:#FF9800,stroke-width:3px
+    style DATA fill:#f3e5f5,stroke:#764ba2,stroke-width:3px
+    style EXT fill:#e8f5e9,stroke:#4CAF50,stroke-width:3px
+                </div>
+            </div>
+            
+            <!-- API Endpoints Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">🔌 API Endpoints by Category</h2>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Authentication & Session Management</h3>
+                <table class="component-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/admin/login</td>
+                            <td>Admin/Counselor Login</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/admin/check</td>
+                            <td>Verify Session Status</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/admin/logout</td>
+                            <td>Logout & Clear Session</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Appointment Management</h3>
+                <table class="component-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/appointments/student</td>
+                            <td>Student Submit Appointment</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/appointments/request</td>
+                            <td>Request New Appointment</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/appointments</td>
+                            <td>Create Appointment (Admin)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/appointments</td>
+                            <td>List All Appointments</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/appointment/:ref</td>
+                            <td>Get Appointment Details</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge put">PUT</span></td>
+                            <td>/api/appointments/:ref</td>
+                            <td>Update Appointment Status</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Counselor Management</h3>
+                <table class="component-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/counselors</td>
+                            <td>List All Counselors</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/counselors</td>
+                            <td>Create New Counselor</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge put">PUT</span></td>
+                            <td>/api/counselors/:id</td>
+                            <td>Update Counselor Profile</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/counselor</td>
+                            <td>Get Current Counselor Info</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Schedule & Notifications</h3>
+                <table class="component-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/schedules/:date</td>
+                            <td>Get Schedules for Date</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/bookedSlots</td>
+                            <td>Get All Booked Time Slots</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/notifications/sse</td>
+                            <td>Server-Sent Events Stream</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/notifications</td>
+                            <td>Get Notifications List</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge delete">DELETE</span></td>
+                            <td>/api/notifications/:id</td>
+                            <td>Delete Notification</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Reports & Utilities</h3>
+                <table class="component-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/api/reports/monthly</td>
+                            <td>Monthly Statistics Report</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge post">POST</span></td>
+                            <td>/api/migrateApprovedSchedules</td>
+                            <td>Migrate Schedules</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge get">GET</span></td>
+                            <td>/health</td>
+                            <td>Health Check</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Technology Stack Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">🛠️ Technology Stack</h2>
+                
+                <div class="tech-stack">
+                    <div class="tech-box">
+                        <h3>Frontend</h3>
+                        <ul>
+                            <li>HTML5</li>
+                            <li>CSS3</li>
+                            <li>Vanilla JavaScript</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-box">
+                        <h3>Backend</h3>
+                        <ul>
+                            <li>Node.js</li>
+                            <li>Express.js 5.1.0</li>
+                            <li>Mongoose 8.19.2</li>
+                            <li>@sendgrid/mail 8.1.6</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-box">
+                        <h3>Database</h3>
+                        <ul>
+                            <li>MongoDB</li>
+                            <li>JSON Files (Fallback)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-box">
+                        <h3>External Services</h3>
+                        <ul>
+                            <li>SendGrid API</li>
+                            <li>Email Notifications</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="tech-box">
+                        <h3>Development</h3>
+                        <ul>
+                            <li>nodemon 3.1.10</li>
+                            <li>dotenv 17.2.3</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Flow Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">📊 Appointment Lifecycle Data Flow</h2>
+                
+                <div class="text-diagram">
+STEP 1: STUDENT INITIATES REQUEST
+─────────────────────────────────
+Student Landing Page → View Counselors → Check Availability → Submit Appointment Request
+
+        ↓
+
+STEP 2: SERVER PROCESSING
+─────────────────────────
+POST /api/appointments/student
+    ├─ Validate Input
+    ├─ Generate Reference Number
+    ├─ Store in MongoDB
+    └─ Trigger Notification
+
+        ↓
+
+STEP 3: REAL-TIME NOTIFICATION
+──────────────────────────────
+GET /api/notifications/sse → Broadcast to Admin/Counselor Portal
+                          → "New Appointment Request!" Alert
+
+        ↓
+
+STEP 4: SEND CONFIRMATION EMAIL
+───────────────────────────────
+SendGrid API → Student receives email with Reference Number & Details
+
+        ↓
+
+STEP 5: ADMIN/COUNSELOR REVIEWS
+───────────────────────────────
+Admin Portal → GET /api/appointments → View Pending Requests
+            → Select Appointment → Review Details
+
+        ↓
+
+STEP 6: MAKE DECISION
+────────────────────
+PUT /api/appointments/:ref
+    ├─ Action: Approve / Reject / Reschedule
+    ├─ Update Status in MongoDB
+    ├─ Broadcast SSE Notification
+    └─ Send Decision Email via SendGrid
+
+        ↓
+
+STEP 7: STUDENT RECEIVES UPDATE
+───────────────────────────────
+Email arrives → Student logs in → GET /api/appointments → Views Updated Status
+           → Calendar reflects new appointment if approved
+
+        ↓
+
+STEP 8: ATTENDANCE & COMPLETION
+───────────────────────────────
+Appointment Date → Counselor Session → Notes recorded → Status marked complete
+             → Database updated with session details
+
+        ↓
+
+STEP 9: REPORTS & ANALYTICS
+───────────────────────────
+GET /api/reports/monthly → System generates statistics
+                        → Admin views reports & analytics
+                </div>
+            </div>
+            
+            <!-- User Roles Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">👥 User Roles & Workflows</h2>
+                
+                <div class="mermaid">
+graph TB
+    subgraph STUDENT["👨‍🎓 STUDENT WORKFLOW (Public Access)"]
+        S1["1. Visit Landing Page"]
+        S2["2. Browse Counselors & Schedules"]
+        S3["3. Submit Appointment Request"]
+        S4["4. Receive Confirmation Email"]
+        S5["5. Track Status in Dashboard"]
+        S6["6. View Appointment in Calendar"]
+        S7["7. Attend Counseling Session"]
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
+    end
+    
+    subgraph COUNSELOR["👨‍⚕️ COUNSELOR WORKFLOW (Protected - Login)"]
+        C1["1. Login to System"]
+        C2["2. View Pending Requests"]
+        C3["3. Review Appointment Details"]
+        C4["4. Approve/Reject/Reschedule"]
+        C5["5. System Sends Email to Student"]
+        C6["6. Manage Calendar & Availability"]
+        C7["7. Conduct Counseling Session"]
+        C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7
+    end
+    
+    subgraph ADMIN["🔧 ADMIN WORKFLOW (Protected - Login)"]
+        A1["1. Login to System"]
+        A2["2. Access Admin Dashboard"]
+        A3["3. Manage Counselor Accounts"]
+        A4["4. Monitor All Appointments"]
+        A5["5. View Activity Logs"]
+        A6["6. Configure System Settings"]
+        A7["7. Generate Reports & Analytics"]
+        A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7
+    end
+    
+    style STUDENT fill:#e3f2fd,stroke:#667eea,stroke-width:2px
+    style COUNSELOR fill:#fff3e0,stroke:#FF9800,stroke-width:2px
+    style ADMIN fill:#f3e5f5,stroke:#764ba2,stroke-width:2px
+                </div>
+            </div>
+            
+            <!-- Database Schema Section -->
+            <div class="diagram-section">
+                <h2 class="section-title">💾 Database Schema</h2>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Counselor Collection</h3>
+                <div class="text-diagram">
+{
+  _id: ObjectId,
+  title: String,
+  firstName: String,
+  middleName: String,
+  lastName: String,
+  email: String,
+  username: String,
+  password: String (hashed),
+  role: String (Counselor/Admin),
+  status: String (Active/Inactive),
+  availability: Array,
+  createdAt: Date,
+  updatedAt: Date
+}
+                </div>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Appointment Collection</h3>
+                <div class="text-diagram">
+{
+  _id: ObjectId,
+  refNumber: String (unique),
+  studentId: String,
+  studentName: String,
+  email: String,
+  course: String,
+  year: String,
+  date: Date,
+  time: String,
+  duration: Number,
+  counselorId: ObjectId,
+  counselorName: String,
+  status: String (Pending/Approved/Rejected/Rescheduled),
+  reason: String,
+  notes: String,
+  remarks: String,
+  createdAt: Date,
+  approvedAt: Date,
+  updatedAt: Date
+}
+                </div>
+                
+                <h3 style="color: #667eea; margin-top: 20px;">Notification Collection</h3>
+                <div class="text-diagram">
+{
+  _id: ObjectId,
+  message: String,
+  type: String (Info/Alert/Success/Error),
+  userId: String,
+  appointmentRef: String,
+  read: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>JRMSU Counseling Appointment System</strong> | Architecture Documentation</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">Last Updated: January 2026 | All Rights Reserved</p>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        mermaid.contentLoaded();
+    </script>
+</body>
+</html>

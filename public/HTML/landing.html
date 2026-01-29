@@ -62,7 +62,7 @@
       <div class="hero-text">
         <h1>Your Path to Better Mental Wellness</h1>
         <p>Request counseling sessions easily and connect with certified guidance counselors who are here to support you.</p>
-        <a href="appointment.html" class="btn-primary">Request Counseling Session</a>
+        <a href="#" onclick="checkLoginAndRedirect(); return false;" class="btn-primary">Request Counseling Session</a>
       </div>
       <div class="hero-img">
         <img src="/images/mental%20wellness.png" alt="Mental wellness illustration" class="mental-wellness-illustration">
@@ -95,7 +95,7 @@
       <div class="schedule-text">
         <h2>Schedule Your Session</h2>
         <p>Take the first step towards better emotional health. Select your counselor and book your preferred schedule.</p>
-        <a href="appointment.html" class="btn-secondary">Get Started</a>
+        <a href="#" onclick="checkLoginAndRedirect(); return false;" class="btn-secondary">Get Started</a>
       </div>
       <div class="schedule-img">
         <img src="/images/counseling%20illustration.jpg" alt="Counseling illustration" class="counseling-illustration">
@@ -144,11 +144,13 @@
 
       <div id="studentForm" style="display:none;">
         <h2>Student Login</h2>
-        <p>View past appointment history and manage your counseling sessions.</p>
+        <p>Enter your school ID and password to access your appointments.</p>
         <input type="text" id="schoolId" placeholder="Enter School ID" required>
-        <input type="email" id="email" placeholder="Enter Email" required>
+        <input type="password" id="studentPassword" placeholder="Enter Password" required>
         <button id="studentLoginBtn" class="login-btn">Login</button>
-        <p>𝑀𝑎𝑘𝑒 𝑠𝑢𝑟𝑒 𝑦𝑜𝑢'𝑣𝑒 𝑎𝑙𝑟𝑒𝑎𝑑𝑦 𝑠𝑒𝑡 𝑎𝑛 𝑎𝑝𝑝𝑜𝑖𝑛𝑡𝑚𝑒𝑛𝑡 𝑏𝑒𝑓𝑜𝑟𝑒.</p>
+        <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">
+          Default password is your last name. You'll be prompted to change it on first login.
+        </p>
       </div>
 
       <div id="adminForm" style="display:none;">
@@ -161,6 +163,21 @@
         <input type="password" id="adminPass" placeholder="Password" required>
         <button id="adminLoginBtn" class="login-btn">Login as Counselor</button>
       </div>
+    </div>
+  </div>
+
+  <!-- PASSWORD CHANGE MODAL (First Login) -->
+  <div class="modal" id="passwordChangeModal">
+    <div class="modal-content">
+      <h2>Change Your Password</h2>
+      <p style="color: #666; margin-bottom: 1.5rem;">
+        This is your first login. For security, please change your password.
+      </p>
+      <input type="password" id="currentPassword" placeholder="Current Password" required>
+      <input type="password" id="newPassword" placeholder="New Password (min 6 characters)" required>
+      <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+      <button id="changePasswordBtn" class="login-btn">Change Password</button>
+      <div id="passwordChangeMessage" style="margin-top: 1rem; text-align: center;"></div>
     </div>
   </div>
 
