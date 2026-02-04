@@ -246,12 +246,71 @@ if (!checkStudentLogin()) {
     fillConfirmation();
   });
 
+  // Get per-student daily limit from admin settings
+  function getDailyLimit() {
+    try {
+      const saved = localStorage.getItem('adminDailyLimit');
+      return saved ? parseInt(saved) : 3; // Default to 3 if not set
+    } catch (e) {
+      console.error('[DAILY LIMIT] Error loading limit:', e);
+      return 3; // Fallback default
+    }
+  }
+
+  // Get total system daily limit from admin settings
+  function getTotalLimit() {
+    try {
+      const saved = localStorage.getItem('adminTotalDailyLimit');
+      return saved ? parseInt(saved) : 30; // Default to 30 if not set
+    } catch (e) {
+      console.error('[TOTAL LIMIT] Error loading limit:', e);
+      return 30; // Fallback default
+    }
+  }
+
+  // Count today's appointments for a student AND total
+  async function countTodayAppointments(studentId) {
+    try {
+      const res = await fetch(`/api/appointments/count-today/${encodeURIComponent(studentId)}`);
+      if (!res.ok) {
+        console.error('[DAILY LIMIT] Error checking count:', res.status);
+        return { studentCount: 0, totalCount: 0 }; // If can't check, allow the request
+      }
+      const data = await res.json();
+      return {
+        studentCount: data.studentCount || 0,
+        totalCount: data.totalCount || 0
+      };
+    } catch (e) {
+      console.error('[DAILY LIMIT] Error counting appointments:', e);
+      return { studentCount: 0, totalCount: 0 }; // If can't check, allow the request
+    }
+  }
+
   // Submit
   submitBtn.addEventListener('click', async () => {
     if(!agree.checked){ alert('Please agree to terms and conditions.'); return; }
     if(selectedUrgency !== 'Crisis' && (!selectedDate || !selectedTime)){ alert('Please select schedule.'); return; }
     if(selectedUrgency !== 'Crisis' && !isDateAllowedByUrgency(selectedDate, selectedUrgency)){
       alert('Selected date is too soon. For non-crisis requests scheduling must be at least 3 days from today.');
+      return;
+    }
+
+    // CHECK DAILY LIMITS (both per-student and total)
+    const studentId = studentid.value.trim();
+    const dailyLimit = getDailyLimit();
+    const totalLimit = getTotalLimit();
+    const counts = await countTodayAppointments(studentId);
+    
+    // Check per-student limit
+    if (counts.studentCount >= dailyLimit) {
+      alert(`❌ Your Daily Limit Reached\n\nYou have already made ${counts.studentCount} appointment request${counts.studentCount !== 1 ? 's' : ''} today.\n\nDaily limit: ${dailyLimit} request${dailyLimit !== 1 ? 's' : ''}/day\n\nPlease try again tomorrow.`);
+      return;
+    }
+    
+    // Check total system limit
+    if (counts.totalCount >= totalLimit) {
+      alert(`❌ System Daily Limit Reached\n\nThe system has already processed ${counts.totalCount} appointment requests today.\n\nSystem limit: ${totalLimit} requests/day\n\nPlease try again tomorrow.`);
       return;
     }
 
@@ -270,7 +329,7 @@ if (!checkStudentLogin()) {
     }
 
     const payload = {
-      studentid: studentid.value.trim(),
+      studentid: studentId,
       fname: fname.value.trim(),
       mname: mname.value.trim(),
       lname: lname.value.trim(),
@@ -320,7 +379,7 @@ if (!checkStudentLogin()) {
   });
 
   goHome && goHome.addEventListener('click', ()=> {
-    window.location.href = 'landing.html';
+    window.location.href = '/HTML/student_dashboard.html';
   });
 
   /* ------------------- Confirmation fill ------------------- */

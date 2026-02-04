@@ -12,6 +12,16 @@ function checkLoginAndRedirect() {
   }
 }
 
+// Toggle password visibility for all password fields
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+  } else {
+    input.type = 'password';
+  }
+}
+
 // NAV MENU TOGGLE
 const navToggle = document.getElementById("navToggle");
 const navMenu = document.querySelector("nav ul");
@@ -210,13 +220,28 @@ if (changePasswordBtn) {
   });
 }
 
+// Skip password change button
+const skipPasswordBtn = document.getElementById('skipPasswordBtn');
+if (skipPasswordBtn) {
+  skipPasswordBtn.addEventListener('click', () => {
+    // Update password changed flag in session to skip for now
+    const studentData = JSON.parse(sessionStorage.getItem('studentData'));
+    studentData.passwordChanged = true; // Mark as changed to allow proceeding
+    sessionStorage.setItem('studentData', JSON.stringify(studentData));
+    
+    // Close modal and redirect to dashboard
+    document.getElementById('passwordChangeModal').style.display = 'none';
+    window.location.href = '/HTML/student_dashboard.html';
+  });
+}
+
 // Close password change modal when clicking outside
 window.addEventListener("click", (e) => {
   if (e.target === passwordChangeModal) {
     // Don't allow closing without changing password on first login
     const studentData = JSON.parse(sessionStorage.getItem('studentData'));
     if (!studentData?.passwordChanged) {
-      alert('You must change your password before proceeding');
+      alert('You can change your password later or click Skip for Now');
       return;
     }
     passwordChangeModal.style.display = "none";
