@@ -522,6 +522,136 @@ app.post('/api/admin/change-password', (req, res) => {
   }
 });
 
+// Update admin account (password and/or username)
+app.post('/api/admin/update-account', (req, res) => {
+  try {
+    const { oldPassword, newPassword, newUsername } = req.body;
+
+    if (!oldPassword) {
+      return res.status(400).json({ error: 'Current password is required' });
+    }
+
+    if (!newPassword && !newUsername) {
+      return res.status(400).json({ error: 'Please provide new password or username' });
+    }
+
+    // Verify admin is authenticated
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    if (!isAdmin) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Verify old password
+    if (oldPassword !== adminPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Update password if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      adminPassword = newPassword;
+      console.log('[ADMIN] Password updated');
+    }
+
+    // Update username if provided
+    if (newUsername) {
+      if (newUsername.length < 3) {
+        return res.status(400).json({ error: 'Username must be at least 3 characters' });
+      }
+      adminUsername = newUsername;
+      console.log('[ADMIN] Username updated to:', newUsername);
+    }
+
+    return res.json({
+      ok: true,
+      message: 'Account updated successfully'
+    });
+  } catch (error) {
+    console.error('Admin update account error:', error);
+    res.status(500).json({ error: 'Failed to update account' });
+  }
+});
+
+// ========== COUNSELOR PROFILE ENDPOINTS ==========
+// Get counselor profile
+app.get('/api/counselor/profile', async (req, res) => {
+  try {
+    // Get counselor ID from session/cookie or request body
+    // For now, we'll get the first counselor (the logged-in one)
+    const counselor = await Counselor.findOne().select('-password');
+    
+    if (!counselor) {
+      return res.status(404).json({ success: false, error: 'Counselor not found' });
+    }
+
+    res.json({
+      success: true,
+      counselor: {
+        title: counselor.title,
+        firstName: counselor.firstName,
+        middleName: counselor.middleName,
+        lastName: counselor.lastName,
+        email: counselor.email,
+        username: counselor.username,
+        role: counselor.role,
+        status: counselor.status
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching counselor profile:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch profile' });
+  }
+});
+
+// Update counselor profile
+app.post('/api/counselor/update-profile', async (req, res) => {
+  try {
+    const { title, firstName, middleName, lastName, email } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+
+    // Update the first counselor (the logged-in one)
+    const counselor = await Counselor.findOneAndUpdate(
+      {},
+      {
+        title: title || 'Ms.',
+        firstName,
+        middleName: middleName || '',
+        lastName,
+        email
+      },
+      { new: true }
+    ).select('-password');
+
+    if (!counselor) {
+      return res.status(404).json({ error: 'Counselor not found' });
+    }
+
+    console.log('[COUNSELOR] Profile updated for:', counselor.firstName, counselor.lastName);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      counselor: {
+        title: counselor.title,
+        firstName: counselor.firstName,
+        middleName: counselor.middleName,
+        lastName: counselor.lastName,
+        email: counselor.email
+      }
+    });
+  } catch (error) {
+    console.error('Error updating counselor profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 // Student login endpoint
 app.post('/api/student/login', async (req, res) => {
   try {
@@ -609,16 +739,6 @@ app.post('/api/student/change-password', async (req, res) => {
 });
 
 // Check admin authentication
-app.get('/api/admin/check', (req, res) => {
-  const cookie = req.headers.cookie || '';
-  const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
-  if (!isAdmin) {
-    return res.status(401).json({ error: 'not authenticated' });
-  }
-  return res.json({ ok: true });
-});
-
-// Counselor API endpoints
 app.get('/api/counselors', async (req, res) => {
   try {
     const counselors = await Counselor.find().select('-password');
@@ -1185,8 +1305,15 @@ app.get('/api/appointments/count-today/:studentId', async (req, res) => {
 // Get all students from database
 app.get('/api/students', async (req, res) => {
   try {
-    const students = await Student.find().sort({ fullName: 1 }).select('schoolId fullName course email').lean();
-    res.json({ students: students || [] });
+    const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName course year email').lean();
+    
+    // Compute fullName for each student since lean() doesn't include virtuals
+    const formattedStudents = students.map(s => ({
+      ...s,
+      fullName: `${s.firstName} ${s.lastName}`
+    }));
+    
+    res.json({ students: formattedStudents || [] });
   } catch (err) {
     console.error('Error fetching students:', err);
     res.status(500).json({ error: 'Failed to fetch students' });
