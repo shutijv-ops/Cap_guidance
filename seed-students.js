@@ -138,16 +138,17 @@ async function seedDatabase() {
       process.exit(0);
     }
 
-    // Create students with default password (lastName)
+    // Create students with default password (lastName in uppercase)
     // Hash passwords before inserting
     const bcrypt = require('bcryptjs');
     const studentsToCreate = await Promise.all(
       sampleStudents.map(async (student) => {
+        const defaultPassword = student.lastName.toUpperCase(); // Capitalize last name
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(student.lastName, salt);
+        const hashedPassword = await bcrypt.hash(defaultPassword, salt);
         return {
           ...student,
-          password: hashedPassword // Default password is hashed last name
+          password: hashedPassword // Default password is hashed uppercase last name
         };
       })
     );
@@ -156,7 +157,7 @@ async function seedDatabase() {
     console.log(`Successfully created ${created.length} sample students:`);
     created.forEach(student => {
       console.log(`  - ${student.schoolId}: ${student.fullName} (${student.email})`);
-      console.log(`    Default Password: ${student.lastName}`);
+      console.log(`    Default Password: ${student.lastName.toUpperCase()}`);
     });
     
     console.log('\nStudents can log in with their School ID and their Last Name as password.');

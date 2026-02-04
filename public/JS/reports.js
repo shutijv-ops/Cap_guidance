@@ -1,4 +1,5 @@
 ﻿/* Reports & Analytics Module */
+console.log('[REPORTS.JS] Script loaded');
 
 // Create mock data for testing
 function createMockData() {
@@ -66,6 +67,116 @@ let urgencyLineChart = null;
 let reportsAppointments = [];
 let reportsWatcherInterval = null;
 
+// TEST FUNCTION: Force render charts with test data (for debugging)
+async function testCharts() {
+  console.log('=== TESTING CHARTS ===');
+  
+  // Wait for Chart.js
+  try { await waitForChartJs(); } catch(e) { console.error('Chart.js not available', e); return; }
+  
+  // Create test months data
+  const testMonths = getMonthlySlots(new Date().getFullYear());
+  testMonths[1].total = 2; // Feb = 2
+  testMonths[1].urgencies = { Crisis: 0, High: 1, Medium: 1, Low: 0 };
+  
+  console.log('Test data:', testMonths);
+  
+  // Get canvases
+  const barCanvas = document.getElementById('monthlyBarChart');
+  const lineCanvas = document.getElementById('urgencyLineChart');
+  console.log('Canvases found:', { bar: !!barCanvas, line: !!lineCanvas });
+  
+  if (!barCanvas || !lineCanvas) {
+    console.error('Canvases not found in DOM');
+    return;
+  }
+  
+  // Destroy existing charts
+  if (monthlyBarChart) {
+    monthlyBarChart.destroy();
+    monthlyBarChart = null;
+  }
+  if (urgencyLineChart) {
+    urgencyLineChart.destroy();
+    urgencyLineChart = null;
+  }
+  
+  // Set fixed dimensions
+  barCanvas.setAttribute('width', '550');
+  barCanvas.setAttribute('height', '250');
+  lineCanvas.setAttribute('width', '550');
+  lineCanvas.setAttribute('height', '250');
+  
+  console.log('Canvas dimensions set');
+  
+  // Create bar chart with test data
+  try {
+    const labels = testMonths.map(m => m.label);
+    const totals = testMonths.map(m => m.total || 0);
+    
+    monthlyBarChart = new Chart(barCanvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ 
+          label: 'Total Appointments', 
+          data: totals, 
+          backgroundColor: '#4f46e5',
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { 
+          x: { grid: { display: false } }, 
+          y: { beginAtZero: true, grid: { color: '#f1f5f9' } } 
+        }
+      }
+    });
+    console.log('✅ Bar chart created');
+  } catch(e) {
+    console.error('❌ Bar chart error:', e);
+    return;
+  }
+  
+  // Create line chart with test data
+  try {
+    const labels = testMonths.map(m => m.label);
+    const urgencyDatasets = Object.entries(URGENCY_COLORS).map(([urgency, colors]) => ({
+      label: urgency,
+      data: testMonths.map(m => (m.urgencies && m.urgencies[urgency]) ? m.urgencies[urgency] : 0),
+      borderColor: colors.line,
+      backgroundColor: colors.fill,
+      fill: true,
+      tension: 0.4
+    }));
+    
+    urgencyLineChart = new Chart(lineCanvas, {
+      type: 'line',
+      data: { labels, datasets: urgencyDatasets },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: { legend: { position: 'top', align: 'center' } },
+        scales: { 
+          x: { grid: { display: false } }, 
+          y: { beginAtZero: true, grid: { color: '#f1f5f9' } } 
+        }
+      }
+    });
+    console.log('✅ Line chart created');
+  } catch(e) {
+    console.error('❌ Line chart error:', e);
+    return;
+  }
+  
+  console.log('=== TEST COMPLETE ===');
+}
+
 // Prepare monthly data slots
 function getMonthlySlots(year) {
   return Array.from({ length: 12 }, (_, i) => ({
@@ -126,11 +237,10 @@ function animateNumber(elementId, target) {
   requestAnimationFrame(updateNumber);
 }
 
-async function initCharts(appointments) {
+// Configure Chart.js defaults (called once)
+async function configureChartDefaults() {
   try {
     await waitForChartJs();
-    
-    // Configure Chart.js defaults
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
     Chart.defaults.color = '#64748b';
     Chart.defaults.plugins.tooltip.padding = 12;
@@ -141,173 +251,18 @@ async function initCharts(appointments) {
     Chart.defaults.plugins.tooltip.displayColors = true;
     Chart.defaults.plugins.tooltip.intersect = false;
     Chart.defaults.plugins.tooltip.mode = 'index';
-    
-    // Get canvas contexts
-    const barCanvas = document.getElementById('monthlyBarChart');
-    const lineCanvas = document.getElementById('urgencyLineChart');
-
-    if (!barCanvas || !lineCanvas) {
-      console.warn('Chart canvases not found');
-      return;
-    }
-
-    // Clean up existing charts
-    if (monthlyBarChart) monthlyBarChart.destroy();
-    if (urgencyLineChart) urgencyLineChart.destroy();
-
-    // Prepare data
-    const months = prepareReportData(appointments);
-    const labels = months.map(m => m.label);
-
-    // Update summary statistics with animation
-    const monthCount = months[new Date().getMonth()]?.total || 0;
-    const avgSessions = Math.round(appointments.length / 12 * 10) / 10;
-
-    animateNumber('reportMonthCount', monthCount);
-    animateNumber('reportAvgSession', avgSessions);
-
-    // Create monthly bar chart
-    monthlyBarChart = new Chart(barCanvas, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Total Appointments',
-          data: months.map(m => m.total),
-          backgroundColor: '#4f46e5',
-          hoverBackgroundColor: '#6366f1',
-          borderRadius: 6,
-          borderSkipped: false
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 1000,
-          easing: 'easeOutQuart'
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => ` ${context.parsed.y} appointments`
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: {
-              display: false
-            }
-          },
-          y: {
-            beginAtZero: true,
-            grid: {
-              color: '#f1f5f9'
-            }
-          }
-        }
-      }
-    });
-
-    // Create urgency line chart datasets
-    const urgencyDatasets = Object.entries(URGENCY_COLORS).map(([urgency, colors]) => ({
-      label: urgency,
-      data: months.map(m => m.urgencies[urgency]),
-      borderColor: colors.line,
-      backgroundColor: colors.fill,
-      hoverBackgroundColor: colors.hover,
-      fill: true,
-      tension: 0.4
-    }));
-
-    // Create urgency line chart
-    urgencyLineChart = new Chart(lineCanvas, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: urgencyDatasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          intersect: false,
-          mode: 'index'
-        },
-        animation: {
-          duration: 1000,
-          easing: 'easeOutQuart'
-        },
-        plugins: {
-          legend: {
-            position: 'top',
-            align: 'center',
-            labels: {
-              boxWidth: 12,
-              usePointStyle: true,
-              padding: 20
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: {
-              display: false
-            }
-          },
-          y: {
-            beginAtZero: true,
-            stacked: false,
-            grid: {
-              color: '#f1f5f9'
-            }
-          }
-        }
-      }
-    });
   } catch (error) {
-    console.error('Failed to initialize charts:', error);
+    console.warn('Failed to configure Chart.js defaults:', error);
   }
 }
 
-// Update existing charts with new appointment data (or create them if missing)
+// Update charts using new server-based monthly data (called when filters change)
 async function updateCharts(appointments) {
-  // ensure Chart.js loaded
-  try { await waitForChartJs(); } catch(e){ console.warn('Chart.js not available for update', e); return; }
-
-  // normalize months and labels
-  const months = prepareReportData(appointments);
-  const labels = months.map(m => m.label);
-
-  // summary
-  const monthCount = months[new Date().getMonth()]?.total || 0;
-  const avgSessions = Math.round(appointments.length / 12 * 10) / 10;
-  animateNumber('reportMonthCount', monthCount);
-  animateNumber('reportAvgSession', avgSessions);
-
-  // Update or create bar chart
-  if (monthlyBarChart) {
-    monthlyBarChart.data.labels = labels;
-    monthlyBarChart.data.datasets[0].data = months.map(m => m.total);
-    monthlyBarChart.update();
-  } else {
-    await initCharts(appointments);
-    return;
-  }
-
-  // Update line chart datasets
-  if (urgencyLineChart) {
-    urgencyLineChart.data.labels = labels;
-    const urgencyDatas = Object.keys(URGENCY_COLORS);
-    urgencyDatas.forEach((u, idx) => {
-      if (urgencyLineChart.data.datasets[idx]) {
-        urgencyLineChart.data.datasets[idx].data = months.map(m => m.urgencies[u]);
-      }
-    });
-    urgencyLineChart.update();
-  }
+  console.log('updateCharts called with appointments:', appointments.length);
+  // Use new approach: fetch from server with filters
+  const filters = getReportFilters();
+  const months = await fetchAggregatedReports(filters);
+  await renderChartsFromMonths(months);
 }
 
 // Fetch aggregated monthly report data from server (preferred) with optional filters
@@ -324,8 +279,25 @@ async function fetchAggregatedReports(filters = {}){
     const res = await fetch('/api/reports/monthly?' + params.toString());
     if(!res.ok) throw new Error('failed to fetch aggregated reports');
     const data = await res.json();
+    console.log('Fetched aggregated reports:', data);
+    
+    // Also fetch actual appointments to populate reportsAppointments for printReport
+    try {
+      const apptRes = await fetch('/api/appointments');
+      if(apptRes.ok){
+        const apptData = await apptRes.json();
+        reportsAppointments = Array.isArray(apptData) ? apptData : (apptData.appointments || []);
+        window.appointments = reportsAppointments;
+        console.log('Loaded appointments:', reportsAppointments.length);
+      }
+    } catch(e) {
+      console.warn('Could not fetch appointments for reports', e);
+    }
+    
     // expect { year, months: [{month:0,label:'Jan',total:...,urgencies:{...}}, ...] }
-    return data.months || [];
+    const months = data.months || [];
+    console.log('Months data to return:', months);
+    return months;
   }catch(err){
     console.warn('Aggregated reports fetch failed, falling back to client aggregation', err);
     // Fallback: prepare from available appointments
@@ -334,93 +306,187 @@ async function fetchAggregatedReports(filters = {}){
   }
 }
 
-// Render charts from server-provided months array
-async function renderChartsFromMonths(months){
-  try{ await waitForChartJs(); }catch(e){ console.warn('Chart.js not ready for render', e); return; }
+// NEW: Render professional monthly and urgency charts
+async function renderChartsFromMonths(months) {
+  console.log('[CHARTS] Starting render');
+  
+  // Ensure Chart.js is loaded
+  await waitForChartJs();
+  console.log('[CHARTS] Chart.js ready');
+
+  // Get canvases
+  const barCanvas = document.getElementById('monthlyBarChart');
+  const lineCanvas = document.getElementById('urgencyLineChart');
+  
+  console.log('[CHARTS] Looking for canvases:', { bar: !!barCanvas, line: !!lineCanvas });
+  
+  if (!barCanvas || !lineCanvas) {
+    console.error('[CHARTS] ❌ Canvas not found');
+    return;
+  }
+
+  // Fallback data
+  if (!months || months.length === 0) {
+    months = getMonthlySlots(new Date().getFullYear());
+  }
 
   const labels = months.map(m => m.label);
   const totals = months.map(m => m.total || 0);
 
   // Update stats
   const monthCount = months[new Date().getMonth()]?.total || 0;
-  const avgSessions = Math.round((totals.reduce((s,n)=>s+n,0) / 12) * 10) / 10;
+  const avgSessions = Math.round((totals.reduce((s, n) => s + n, 0) / 12) * 10) / 10;
   animateNumber('reportMonthCount', monthCount);
   animateNumber('reportAvgSession', avgSessions);
 
-  const barCanvas = document.getElementById('monthlyBarChart');
-  const lineCanvas = document.getElementById('urgencyLineChart');
-  if(!barCanvas || !lineCanvas) return;
-
-  // Create or update bar chart
-  if(monthlyBarChart){
-    monthlyBarChart.data.labels = labels;
-    monthlyBarChart.data.datasets[0].data = totals;
-    monthlyBarChart.update();
-  } else {
-    monthlyBarChart = new Chart(barCanvas, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{ label: 'Total Appointments', data: totals, backgroundColor: '#4f46e5', borderRadius:6, borderSkipped:false }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio:false,
-        plugins: { legend:{ display:false }},
-        scales: { x:{ grid:{ display:false } }, y:{ beginAtZero:true, grid:{ color:'#f1f5f9' } } }
-      }
-    });
+  // Destroy old charts
+  if (window.monthlyBarChart) {
+    window.monthlyBarChart.destroy();
+    window.monthlyBarChart = null;
+  }
+  if (window.urgencyLineChart) {
+    window.urgencyLineChart.destroy();
+    window.urgencyLineChart = null;
   }
 
-  // Prepare urgency datasets
+  console.log('[CHARTS] Creating bar chart with data:', totals);
+
+  // Bar chart
+  window.monthlyBarChart = new Chart(barCanvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total Appointments',
+        data: totals,
+        backgroundColor: '#4f46e5',
+        borderRadius: 8,
+        hoverBackgroundColor: '#4338ca'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          padding: 12,
+          cornerRadius: 8
+        }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#e2e8f0' } }
+      }
+    }
+  });
+  console.log('[CHARTS] ✅ Bar chart created');
+
+  // Line chart
   const urgencyDatasets = Object.entries(URGENCY_COLORS).map(([urgency, colors]) => ({
     label: urgency,
-    data: months.map(m => (m.urgencies && m.urgencies[urgency]) ? m.urgencies[urgency] : 0),
+    data: months.map(m => m.urgencies?.[urgency] || 0),
     borderColor: colors.line,
     backgroundColor: colors.fill,
+    borderWidth: 2,
     fill: true,
-    tension: 0.4
+    tension: 0.35
   }));
 
-  if(urgencyLineChart){
-    urgencyLineChart.data.labels = labels;
-    urgencyLineChart.data.datasets = urgencyDatasets;
-    urgencyLineChart.update();
-  } else {
-    urgencyLineChart = new Chart(lineCanvas, {
-      type: 'line',
-      data: { labels, datasets: urgencyDatasets },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        interaction:{ intersect:false, mode:'index' },
-        plugins:{ legend:{ position:'top', align:'center' } },
-        scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true, grid:{ color:'#f1f5f9' } } }
+  console.log('[CHARTS] Creating line chart');
+
+  window.urgencyLineChart = new Chart(lineCanvas, {
+    type: 'line',
+    data: { labels, datasets: urgencyDatasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { boxWidth: 14, usePointStyle: true, padding: 16 }
+        }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#e2e8f0' } }
       }
-    });
-  }
+    }
+  });
+  console.log('[CHARTS] ✅ Line chart created');
+
+  // Store globally
+  monthlyBarChart = window.monthlyBarChart;
+  urgencyLineChart = window.urgencyLineChart;
+
+  console.log('[CHARTS] ✅ All done');
+}
 }
 
 // Initialize and render reports with animations
 async function initReports() {
-  console.log('Initializing reports...');
+  console.log('[INIT] Initializing reports...');
+
+  // Configure Chart.js defaults (do once)
+  await configureChartDefaults();
 
   // Ensure Reports view is visible
   const reportsView = document.getElementById('view-reports');
   if (!reportsView || reportsView.classList.contains('hidden')) {
-    console.log('Reports view is hidden, skipping render');
+    console.log('[INIT] Reports view is hidden, skipping render');
     return;
   }
 
-  // Fetch aggregated monthly data from server (most accurate for large datasets)
-  const initialFilters = getReportFilters();
-  const months = await fetchAggregatedReports({ year: new Date().getFullYear(), from: initialFilters.from, to: initialFilters.to, counselor: initialFilters.counselor, priority: initialFilters.priority });
-  // Render charts from aggregated months
-  await renderChartsFromMonths(months);
+  console.log('[INIT] Reports view is visible');
+
+  // Add delay to ensure DOM is fully rendered and canvas has dimensions
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // TEST: Render empty months immediately to test Chart.js
+  console.log('[INIT] Testing Chart.js with empty data...');
+  const testMonths = getMonthlySlots(new Date().getFullYear());
+  try {
+    await renderChartsFromMonths(testMonths);
+    console.log('[INIT] ✅ Test render succeeded');
+  } catch(err) {
+    console.error('[INIT] ❌ Test render failed:', err);
+  }
+
+  // Then try to fetch real data
+  try {
+    console.log('[INIT] Fetching real data...');
+    const initialFilters = getReportFilters();
+    let months = await fetchAggregatedReports({ 
+      year: new Date().getFullYear(), 
+      from: initialFilters.from, 
+      to: initialFilters.to, 
+      counselor: initialFilters.counselor, 
+      priority: initialFilters.priority 
+    });
+    
+    if (months && months.length > 0) {
+      console.log('[INIT] Got real data, re-rendering...');
+      await renderChartsFromMonths(months);
+    } else {
+      console.log('[INIT] No real data, keeping test render');
+    }
+  } catch(err) {
+    console.error('[INIT] Error fetching real data:', err);
+  }
 
   // Wire filters and realtime after initial render
-  setupReportFilters();
-  initReportsRealtime();
-  // keep watcher so if admin_dashboard updates window.appointments we can fallback to client refresh
-  startWindowAppointmentsWatcher();
+  try {
+    setupReportFilters();
+    initReportsRealtime();
+    startWindowAppointmentsWatcher();
+  } catch(err) {
+    console.warn('[INIT] Error setting up report filters/realtime:', err);
+  }
+
+  console.log('[INIT] ✅ Complete');
+}
 }
 
 // Function to initialize reports on view change
@@ -570,5 +636,344 @@ function startWindowAppointmentsWatcher(){
 window.initReports = initReports;
 window.initReportsOnView = initReportsOnView;
 
-// Initialize when the document is ready
-document.addEventListener('DOMContentLoaded', initReportsOnView);
+// ========== PRINT REPORT FUNCTIONALITY ==========
+function printReport() {
+  // Get statistics
+  const monthCount = document.getElementById('reportMonthCount')?.textContent || 0;
+  const avgSession = document.getElementById('reportAvgSession')?.textContent || 0;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-US');
+  
+  // Get chart images from Chart.js instances
+  let barChartImage = '';
+  let lineChartImage = '';
+  
+  try {
+    // Access Chart.js chart instances if they exist
+    if (window.monthlyChart && window.monthlyChart.canvas) {
+      barChartImage = window.monthlyChart.canvas.toDataURL('image/png');
+    }
+    if (window.urgencyChart && window.urgencyChart.canvas) {
+      lineChartImage = window.urgencyChart.canvas.toDataURL('image/png');
+    }
+  } catch (e) {
+    console.warn('Could not capture charts:', e);
+  }
+  
+  // Get appointment data - use reportsAppointments (populated by the reports module)
+  const source = (reportsAppointments && reportsAppointments.length > 0) ? reportsAppointments : [];
+  
+  // Process the data to get monthly breakdown with current year
+  const currentYear = new Date().getFullYear();
+  const months = getMonthlySlots(currentYear);
+  
+  // Populate months with appointment data
+  source.forEach(appt => {
+    try {
+      const date = new Date(appt.date);
+      if (date.getFullYear() !== currentYear) return;
+      
+      const month = date.getMonth();
+      months[month].total++;
+      
+      const urgency = (appt.urgency || '').toString();
+      if (urgency.includes('Crisis')) months[month].urgencies.Crisis++;
+      else if (urgency.includes('High')) months[month].urgencies.High++;
+      else if (urgency.includes('Medium')) months[month].urgencies.Medium++;
+      else months[month].urgencies.Low++;
+    } catch(e) {
+      console.warn('Error processing appointment:', appt, e);
+    }
+  });
+  
+  // Calculate totals for key metrics
+  const totalAppointments = source.length;
+  const crisisCount = source.filter(a => (a.urgency || '').includes('Crisis')).length;
+  const highCount = source.filter(a => (a.urgency || '').includes('High')).length;
+  const mediumCount = source.filter(a => (a.urgency || '').includes('Medium')).length;
+  const lowCount = source.filter(a => !(a.urgency || '').includes('Crisis') && !(a.urgency || '').includes('High') && !(a.urgency || '').includes('Medium')).length;
+  
+  const crisisPercent = totalAppointments > 0 ? ((crisisCount / totalAppointments) * 100).toFixed(1) : 0;
+  const highPercent = totalAppointments > 0 ? ((highCount / totalAppointments) * 100).toFixed(1) : 0;
+  const mediumPercent = totalAppointments > 0 ? ((mediumCount / totalAppointments) * 100).toFixed(1) : 0;
+  const lowPercent = totalAppointments > 0 ? ((lowCount / totalAppointments) * 100).toFixed(1) : 0;
+  
+  // Build HTML for PDF
+  const reportContent = `
+    <div id="reportPDF" style="font-family: 'Arial', sans-serif; color: #1f2937; line-height: 1.6; background: #fff; padding: 20px;">
+      <div style="max-width: 900px; margin: 0 auto;">
+        <!-- Header -->
+        <div style="border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px;">
+          <h1 style="color: #0a2342; font-size: 2.5em; margin: 0 0 10px 0;">📊 Appointments Report</h1>
+          <div style="display: flex; gap: 20px; font-size: 0.9em; color: #6b7280;">
+            <div><strong>Generated:</strong> ${dateStr} ${timeStr}</div>
+            <div><strong>System:</strong> JRMSU Guidance Office</div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <div style="font-size: 0.9em; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">This Month</div>
+            <div style="font-size: 2em; font-weight: 700; color: #0a2342;">${monthCount}</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <div style="font-size: 0.9em; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Avg. Sessions / Month</div>
+            <div style="font-size: 2em; font-weight: 700; color: #0a2342;">${avgSession}</div>
+          </div>
+        </div>
+
+        <!-- Monthly Chart -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Monthly Appointments Trend</h2>
+          <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
+            ${barChartImage ? `<img src="${barChartImage}" alt="Monthly Appointments Chart" style="max-width: 100%; height: auto; max-height: 300px;">` : '<p style="color: #6b7280;">Bar chart showing total appointments for each month over the past 12 months.</p>'}
+          </div>
+          <p style="font-size: 0.85em; color: #6b7280;">Bar chart showing total appointments for each month over the past 12 months.</p>
+        </div>
+
+        <!-- Urgency Chart -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Urgency Trend Analysis</h2>
+          <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
+            ${lineChartImage ? `<img src="${lineChartImage}" alt="Urgency Trend Chart" style="max-width: 100%; height: auto; max-height: 300px;">` : '<p style="color: #6b7280;">Line chart showing the trend of Crisis, High, Medium, and Low urgency appointments over the past 12 months.</p>'}
+          </div>
+          <p style="font-size: 0.85em; color: #6b7280;">Line chart showing the trend of Crisis, High, Medium, and Low urgency appointments over the past 12 months.</p>
+        </div>
+
+        <!-- Data Table -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Monthly Data Summary</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; background: #fff;">
+            <thead>
+              <tr>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Month</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Total</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Crisis</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">High</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Medium</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Low</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${months.map((m, idx) => {
+                const bgColor = idx % 2 === 0 ? '#fff' : '#f9fafb';
+                return `<tr style="background: ${bgColor};">
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>${m.label}</strong></td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.total || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Crisis || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.High || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Medium || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Low || 0}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Key Metrics -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Key Metrics</h2>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              <li style="margin-bottom: 10px;"><strong>Total Appointments:</strong> ${totalAppointments}</li>
+              <li style="margin-bottom: 10px;"><strong>Crisis Level:</strong> ${crisisCount} (${crisisPercent}%)</li>
+              <li style="margin-bottom: 10px;"><strong>High Priority:</strong> ${highCount} (${highPercent}%)</li>
+              <li style="margin-bottom: 10px;"><strong>Medium Priority:</strong> ${mediumCount} (${mediumPercent}%)</li>
+              <li><strong>Low Priority:</strong> ${lowCount} (${lowPercent}%)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.85em;">
+          <p style="margin: 0 0 8px 0;">This report was automatically generated by the JRMSU Guidance Office Management System</p>
+          <p style="margin: 0;">For more information, contact the Guidance Office</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Export to PDF using html2pdf library
+  const element = document.createElement('div');
+  element.innerHTML = reportContent;
+  document.body.appendChild(element);
+  
+  const opt = {
+    margin: 10,
+    filename: `Appointments-Report-${dateStr.replace(/\s+/g, '-')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+  };
+  
+  // Load html2pdf library from CDN if not already loaded
+  if (typeof html2pdf === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = function() {
+      html2pdf().set(opt).from(element).save();
+      setTimeout(() => element.remove(), 500);
+    };
+    document.head.appendChild(script);
+  } else {
+    html2pdf().set(opt).from(element).save();
+    setTimeout(() => element.remove(), 500);
+  }
+}
+  
+  // Build HTML for PDF
+  const reportContent = `
+    <div id="reportPDF" style="font-family: 'Arial', sans-serif; color: #1f2937; line-height: 1.6; background: #fff; padding: 20px;">
+      <div style="max-width: 900px; margin: 0 auto;">
+        <!-- Header -->
+        <div style="border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px;">
+          <h1 style="color: #0a2342; font-size: 2.5em; margin: 0 0 10px 0;">📊 Appointments Report</h1>
+          <div style="display: flex; gap: 20px; font-size: 0.9em; color: #6b7280;">
+            <div><strong>Generated:</strong> ${dateStr} ${timeStr}</div>
+            <div><strong>System:</strong> JRMSU Guidance Office</div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <div style="font-size: 0.9em; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">This Month</div>
+            <div style="font-size: 2em; font-weight: 700; color: #0a2342;">${monthCount}</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <div style="font-size: 0.9em; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Avg. Sessions / Month</div>
+            <div style="font-size: 2em; font-weight: 700; color: #0a2342;">${avgSession}</div>
+          </div>
+        </div>
+
+        <!-- Monthly Chart -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Monthly Appointments Trend</h2>
+          <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
+            ${barChartImage ? `<img src="${barChartImage}" alt="Monthly Appointments Chart" style="max-width: 100%; height: auto; max-height: 300px;">` : '<p style="color: #6b7280;">Bar chart showing total appointments for each month over the past 12 months.</p>'}
+          </div>
+          <p style="font-size: 0.85em; color: #6b7280;">Bar chart showing total appointments for each month over the past 12 months.</p>
+        </div>
+
+        <!-- Urgency Chart -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Urgency Trend Analysis</h2>
+          <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
+            ${lineChartImage ? `<img src="${lineChartImage}" alt="Urgency Trend Chart" style="max-width: 100%; height: auto; max-height: 300px;">` : '<p style="color: #6b7280;">Line chart showing the trend of Crisis, High, Medium, and Low urgency appointments over the past 12 months.</p>'}
+          </div>
+          <p style="font-size: 0.85em; color: #6b7280;">Line chart showing the trend of Crisis, High, Medium, and Low urgency appointments over the past 12 months.</p>
+        </div>
+
+        <!-- Data Table -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Monthly Data Summary</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9em; background: #fff;">
+            <thead>
+              <tr>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Month</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Total</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Crisis</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">High</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Medium</th>
+                <th style="background: #4f46e5; color: #fff; padding: 12px; text-align: left; font-weight: 600;">Low</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${months.map((m, idx) => {
+                const bgColor = idx % 2 === 0 ? '#fff' : '#f9fafb';
+                return `<tr style="background: ${bgColor};">
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>${m.label}</strong></td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.total || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Crisis || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.High || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Medium || 0}</td>
+                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Low || 0}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Key Metrics -->
+        <div style="margin-bottom: 40px; page-break-inside: avoid;">
+          <h2 style="font-size: 1.5em; color: #0a2342; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin: 0 0 20px 0; font-weight: 700;">Key Metrics</h2>
+          <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #4f46e5;">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              <li style="margin-bottom: 10px;"><strong>Total Appointments:</strong> ${totalAppointments}</li>
+              <li style="margin-bottom: 10px;"><strong>Crisis Level:</strong> ${crisisCount} (${crisisPercent}%)</li>
+              <li style="margin-bottom: 10px;"><strong>High Priority:</strong> ${highCount} (${highPercent}%)</li>
+              <li style="margin-bottom: 10px;"><strong>Medium Priority:</strong> ${mediumCount} (${mediumPercent}%)</li>
+              <li><strong>Low Priority:</strong> ${lowCount} (${lowPercent}%)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 0.85em;">
+          <p style="margin: 0 0 8px 0;">This report was automatically generated by the JRMSU Guidance Office Management System</p>
+          <p style="margin: 0;">For more information, contact the Guidance Office</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Export to PDF using html2pdf library
+  const element = document.createElement('div');
+  element.innerHTML = reportContent;
+  document.body.appendChild(element);
+  
+  const opt = {
+    margin: 10,
+    filename: `Appointments-Report-${dateStr.replace(/\s+/g, '-')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+  };
+  
+  // Load html2pdf library from CDN if not already loaded
+  if (typeof html2pdf === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.onload = function() {
+      html2pdf().set(opt).from(element).save();
+      setTimeout(() => element.remove(), 500);
+    };
+    document.head.appendChild(script);
+  } else {
+    html2pdf().set(opt).from(element).save();
+    setTimeout(() => element.remove(), 500);
+  }
+}
+
+// Setup event listeners when document is ready
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[REPORTS] DOMContentLoaded fired');
+  
+  // Setup print button listener
+  const printBtn = document.getElementById('printReportBtn');
+  if (printBtn) {
+    printBtn.addEventListener('click', printReport);
+    console.log('[REPORTS] Print button wired');
+  } else {
+    console.warn('[REPORTS] Print button not found');
+  }
+  
+  // Setup test button listener
+  const testBtn = document.getElementById('testChartsBtn');
+  console.log('[REPORTS] Test button element:', testBtn);
+  if (testBtn) {
+    testBtn.addEventListener('click', testCharts);
+    console.log('[REPORTS] Test button wired up');
+  } else {
+    console.warn('[REPORTS] Test button not found - making testCharts global');
+    window.testCharts = testCharts; // Make it available on window
+  }
+  
+  // Initialize reports view observer
+  initReportsOnView();
+});
+
+// Also make testCharts globally available immediately
+window.testCharts = testCharts;

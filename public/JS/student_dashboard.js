@@ -459,10 +459,129 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // SETTINGS SECTION FUNCTIONALITY
+  function setupSettings(studentData) {
+    // Populate account info
+    document.getElementById('settingsFirstName').textContent = studentData.firstName || '-';
+    document.getElementById('settingsLastName').textContent = studentData.lastName || '-';
+    document.getElementById('settingsSchoolId').textContent = studentData.schoolId || '-';
+    document.getElementById('settingsEmail').textContent = studentData.email || '-';
+    document.getElementById('settingsCourse').textContent = studentData.course || '-';
+    document.getElementById('settingsYear').textContent = studentData.year || '-';
+
+    // Change password button
+    const changePasswordBtn = document.getElementById('changePasswordSettingsBtn');
+    if (changePasswordBtn) {
+      changePasswordBtn.addEventListener('click', async () => {
+        const currentPassword = document.getElementById('settingsCurrentPassword').value?.trim();
+        const newPassword = document.getElementById('settingsNewPassword').value?.trim();
+        const confirmPassword = document.getElementById('settingsConfirmPassword').value?.trim();
+        const messageDiv = document.getElementById('settingsPasswordMessage');
+
+        // Validation
+        if (!currentPassword || !newPassword || !confirmPassword) {
+          messageDiv.innerHTML = '<span style="color: red;">All fields are required</span>';
+          messageDiv.style.display = 'block';
+          return;
+        }
+
+        if (newPassword.length < 6) {
+          messageDiv.innerHTML = '<span style="color: red;">Password must be at least 6 characters</span>';
+          messageDiv.style.display = 'block';
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          messageDiv.innerHTML = '<span style="color: red;">Passwords do not match</span>';
+          messageDiv.style.display = 'block';
+          return;
+        }
+
+        try {
+          messageDiv.innerHTML = '<span style="color: #6b7280;">Changing password...</span>';
+          messageDiv.style.display = 'block';
+
+          const res = await fetch('/api/student/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: studentData.id,
+              oldPassword: currentPassword,
+              newPassword: newPassword
+            })
+          });
+
+          if (!res.ok) {
+            const error = await res.json();
+            messageDiv.innerHTML = `<span style="color: red;">${error.error || 'Failed to change password'}</span>`;
+            messageDiv.style.display = 'block';
+            return;
+          }
+
+          messageDiv.innerHTML = '<span style="color: green;">Password changed successfully!</span>';
+          messageDiv.style.display = 'block';
+
+          // Clear form
+          document.getElementById('settingsCurrentPassword').value = '';
+          document.getElementById('settingsNewPassword').value = '';
+          document.getElementById('settingsConfirmPassword').value = '';
+
+          // Clear message after 3 seconds
+          setTimeout(() => {
+            messageDiv.style.display = 'none';
+          }, 3000);
+
+        } catch(err) {
+          console.error('Password change error:', err);
+          messageDiv.innerHTML = '<span style="color: red;">An error occurred. Please try again.</span>';
+          messageDiv.style.display = 'block';
+        }
+      });
+    }
+  }
+
+  // Setup section navigation
+  function setupSectionNavigation() {
+    const navItems = document.querySelectorAll('.side-nav a');
+    const sections = document.querySelectorAll('.main-content section');
+
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = item.getAttribute('href').substring(1);
+
+        // Remove active class from all sections and nav items
+        sections.forEach(section => {
+          section.classList.remove('active-section');
+          section.style.display = 'none';
+        });
+        navItems.forEach(nav => nav.classList.remove('active'));
+
+        // Add active class to selected section and nav item
+        const targetSection = document.getElementById(targetId);
+        if (targetSection) {
+          targetSection.classList.add('active-section');
+          targetSection.style.display = 'block';
+          item.classList.add('active');
+        }
+      });
+    });
+  }
+
+  async function handleLogout() {
+    const confirmLogout = await showConfirmDialog('Confirm Logout', 'Are you sure you want to logout?');
+    if (confirmLogout) {
+      sessionStorage.removeItem('studentData');
+      window.location.href = 'landing.html';
+    }
+  }
+
   // Initialize dashboard
   const studentData = checkAuth();
   if (studentData) {
     updateUserInfo(studentData);
+    setupSettings(studentData);
+    setupSectionNavigation();
     renderAppointments(studentData.studentId, studentData.email);
     if (sortAscBtn) {
       sortAscBtn.addEventListener('click', () => renderSortedAppointments('asc'));

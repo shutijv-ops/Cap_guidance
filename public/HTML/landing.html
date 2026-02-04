@@ -146,7 +146,13 @@
         <h2>Student Login</h2>
         <p>Enter your school ID and password to access your appointments.</p>
         <input type="text" id="schoolId" placeholder="Enter School ID" required>
-        <input type="password" id="studentPassword" placeholder="Enter Password" required>
+        <div style="position: relative; margin-bottom: 1rem;">
+          <input type="password" id="studentPassword" placeholder="Enter Password" required style="width: 100%;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: #666; cursor: pointer;">
+            <input type="checkbox" onchange="togglePasswordVisibility('studentPassword')" style="cursor: pointer; width: 18px; height: 18px;">
+            Show password
+          </label>
+        </div>
         <button id="studentLoginBtn" class="login-btn">Login</button>
         <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">
           Default password is your last name. You'll be prompted to change it on first login.
@@ -160,7 +166,13 @@
           <div style="color:#6b7280;font-size:0.875rem;">Guidance Counselor</div>
         </div>
         <input type="text" id="adminUser" placeholder="Username (kristine.carl)" required>
-        <input type="password" id="adminPass" placeholder="Password" required>
+        <div style="position: relative; margin-bottom: 1rem;">
+          <input type="password" id="adminPass" placeholder="Password" required style="width: 100%;">
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: #666; cursor: pointer;">
+            <input type="checkbox" onchange="togglePasswordVisibility('adminPass')" style="cursor: pointer; width: 18px; height: 18px;">
+            Show password
+          </label>
+        </div>
         <button id="adminLoginBtn" class="login-btn">Login as Counselor</button>
       </div>
     </div>
@@ -173,10 +185,31 @@
       <p style="color: #666; margin-bottom: 1.5rem;">
         This is your first login. For security, please change your password.
       </p>
-      <input type="password" id="currentPassword" placeholder="Current Password" required>
-      <input type="password" id="newPassword" placeholder="New Password (min 6 characters)" required>
-      <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
-      <button id="changePasswordBtn" class="login-btn">Change Password</button>
+      <div style="position: relative; margin-bottom: 1rem;">
+        <input type="password" id="currentPassword" placeholder="Current Password" required style="width: 100%;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: #666; cursor: pointer;">
+          <input type="checkbox" onchange="togglePasswordVisibility('currentPassword')" style="cursor: pointer; width: 18px; height: 18px;">
+          Show password
+        </label>
+      </div>
+      <div style="position: relative; margin-bottom: 1rem;">
+        <input type="password" id="newPassword" placeholder="New Password (min 6 characters)" required style="width: 100%;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: #666; cursor: pointer;">
+          <input type="checkbox" onchange="togglePasswordVisibility('newPassword')" style="cursor: pointer; width: 18px; height: 18px;">
+          Show password
+        </label>
+      </div>
+      <div style="position: relative; margin-bottom: 1rem;">
+        <input type="password" id="confirmPassword" placeholder="Confirm New Password" required style="width: 100%;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: #666; cursor: pointer;">
+          <input type="checkbox" onchange="togglePasswordVisibility('confirmPassword')" style="cursor: pointer; width: 18px; height: 18px;">
+          Show password
+        </label>
+      </div>
+      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <button id="changePasswordBtn" class="login-btn" style="flex: 1;">Change Password</button>
+        <button id="skipPasswordBtn" class="login-btn" style="flex: 1; background-color: #999;">Skip for Now</button>
+      </div>
       <div id="passwordChangeMessage" style="margin-top: 1rem; text-align: center;"></div>
     </div>
   </div>

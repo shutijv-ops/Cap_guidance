@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
 const Student = require('./models/students');
 const sgMail = require('@sendgrid/mail');
+const socketIO = require('socket.io');
 
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
@@ -309,6 +310,9 @@ const DEFAULT_COUNSELOR = {
   password: 'admin123' // Note: In production, use hashed passwords
 };
 
+// In-memory storage for admin password (persists during session)
+let adminPassword = DEFAULT_COUNSELOR.password;
+
 // Basic middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -434,11 +438,42 @@ const server = app.listen(PORT, () => {
   console.log(`Server running at http://127.0.0.1:${PORT} (http://localhost:${PORT})`);
 });
 
+// Initialize Socket.IO for real-time updates
+const io = socketIO(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Store connected admin clients
+let adminClients = [];
+
+io.on('connection', (socket) => {
+  console.log(`[SOCKET] Client connected: ${socket.id}`);
+  
+  socket.on('join-admin', () => {
+    adminClients.push(socket.id);
+    console.log(`[SOCKET] Admin joined. Total admins: ${adminClients.length}`);
+    socket.emit('admin-connection', { status: 'connected' });
+  });
+  
+  socket.on('disconnect', () => {
+    adminClients = adminClients.filter(id => id !== socket.id);
+    console.log(`[SOCKET] Client disconnected: ${socket.id}`);
+  });
+});
+
+// Function to broadcast real-time updates to all connected admins
+function broadcastUpdate(event, data) {
+  io.emit(event, data);
+}
+
 // Simple admin auth (development-only)
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
   if(!username || !password) return res.status(400).json({ error: 'missing credentials' });
-  if(username.trim().toLowerCase() === DEFAULT_COUNSELOR.username && password === DEFAULT_COUNSELOR.password){
+  if(username.trim().toLowerCase() === DEFAULT_COUNSELOR.username && password === adminPassword){
     // set a simple cookie to mark the session (HttpOnly)
     res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
     return res.json({ 
@@ -451,6 +486,126 @@ app.post('/api/admin/login', (req, res) => {
     });
   }
   return res.status(401).json({ error: 'invalid credentials' });
+});
+
+// Admin change password endpoint
+app.post('/api/admin/change-password', (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Verify admin is authenticated
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    if (!isAdmin) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Verify old password
+    if (oldPassword !== adminPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Update password
+    adminPassword = newPassword;
+
+    return res.json({
+      ok: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Admin change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Student login endpoint
+app.post('/api/student/login', async (req, res) => {
+  try {
+    const { schoolId, password } = req.body;
+
+    if (!schoolId || !password) {
+      return res.status(400).json({ error: 'School ID and password are required' });
+    }
+
+    // Find student by school ID
+    const student = await Student.findOne({ schoolId: schoolId.trim() });
+    
+    if (!student) {
+      return res.status(401).json({ error: 'Invalid school ID or password' });
+    }
+
+    // Compare password
+    const isPasswordValid = await student.comparePassword(password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid school ID or password' });
+    }
+
+    // Return student data (without password)
+    return res.json({
+      ok: true,
+      student: {
+        id: student._id,
+        schoolId: student.schoolId,
+        firstName: student.firstName,
+        middleName: student.middleName,
+        lastName: student.lastName,
+        suffix: student.suffix,
+        email: student.email,
+        course: student.course,
+        year: student.year,
+        contact: student.contact,
+        fullName: student.fullName,
+        passwordChanged: student.passwordChanged,
+        status: student.status
+      }
+    });
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Student change password endpoint
+app.post('/api/student/change-password', async (req, res) => {
+  try {
+    const { studentId, oldPassword, newPassword } = req.body;
+
+    if (!studentId || !oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Find student by ID
+    const student = await Student.findById(studentId);
+    
+    if (!student) {
+      return res.status(401).json({ error: 'Student not found' });
+    }
+
+    // Verify old password
+    const isPasswordValid = await student.comparePassword(oldPassword);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Update password
+    student.password = newPassword; // Will be hashed by pre-save hook
+    student.passwordChanged = true;
+    await student.save();
+
+    return res.json({
+      ok: true,
+      message: 'Password changed successfully'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
 });
 
 // Check admin authentication
@@ -700,6 +855,49 @@ app.post('/api/appointments/request', async (req, res) => {
       await appt.save();
       console.log('Appointment saved successfully:', { refNumber, status });
       sendSseEvent('appointment', appt);
+      
+      // Send confirmation email to student
+      try {
+        const confirmationHtml = `
+          <p>Hi ${fname} ${lname},</p>
+          <p>Thank you for submitting your appointment request with JRMSU Guidance Office.</p>
+          <p><strong>Request Details:</strong></p>
+          <ul>
+            <li>Reference Number: <strong>${refNumber}</strong></li>
+            <li>Requested Date: ${formatDateForEmail(apptDate)}</li>
+            <li>Requested Time: ${formatTimeForEmail(apptTime)}</li>
+            <li>Reason: ${reason}</li>
+            <li>Urgency Level: ${urgency}</li>
+          </ul>
+          <p><strong>What happens next?</strong></p>
+          <ul>
+            <li>Your request will be reviewed by the guidance office</li>
+            <li>You will receive an email once your appointment is approved</li>
+            <li>Please ensure your email is correct so we can contact you</li>
+          </ul>
+          <p>If you need to cancel or modify your request, please contact the guidance office:</p>
+          <ul>
+            <li>Email: guidance@jrmsu.edu.ph</li>
+            <li>Phone: (065) 123-2234</li>
+          </ul>
+          <p>Thank you for using our online appointment system.</p>
+          <p>Best regards,<br/>JRMSU Guidance Office</p>
+        `;
+        
+        const msg = {
+          to: email,
+          from: process.env.FROM_EMAIL,
+          subject: `Appointment Request Received - Ref ${refNumber}`,
+          html: confirmationHtml
+        };
+        
+        await sgMail.send(msg);
+        console.log('Confirmation email sent to', email);
+      } catch (emailErr) {
+        console.error('Failed to send confirmation email:', emailErr);
+        // Don't fail the appointment creation if email fails
+      }
+      
       res.json({ ok: true, refNumber });
     } catch (saveErr) {
       console.error('Error saving appointment:', saveErr);
@@ -790,6 +988,17 @@ app.post('/api/appointments', async (req, res) => {
     const payload = { ...formattedData, refNumber: ref, createdAt: appt.createdAt, saved: true };
     // broadcast to SSE clients
     sendSseEvent('appointment', payload);
+    // Broadcast to real-time WebSocket clients
+    broadcastUpdate('appointment-created', { 
+      refNumber: ref, 
+      studentid: appt.studentid,
+      date: appt.date,
+      time: appt.time,
+      status: appt.status,
+      urgency: appt.urgency,
+      fname: appt.fname,
+      lname: appt.lname
+    });
     res.json({ ok: true, refNumber: ref, appointment: appt, saved: true });
   }catch(err){
     console.error(err);
@@ -819,11 +1028,23 @@ app.put('/api/appointments/:ref', async (req, res) => {
 
     console.log('Update data:', update);
 
-    // Fetch prior state to handle approved schedule mirroring
-    const prior = await Appointment.findOne({ refNumber: ref }).lean();
+    // Try to find by refNumber first, then by _id
+    let prior = await Appointment.findOne({ refNumber: ref }).lean();
+    let queryFilter = { refNumber: ref };
+    
+    if (!prior) {
+      // Try with MongoDB _id
+      try {
+        prior = await Appointment.findById(ref).lean();
+        queryFilter = { _id: ref };
+      } catch (e) {
+        // Invalid ObjectId
+      }
+    }
+    
     console.log('Prior appointment state:', prior);
     
-    const appt = await Appointment.findOneAndUpdate({ refNumber: ref }, { $set: update }, { new: true }).lean();
+    const appt = await Appointment.findOneAndUpdate(queryFilter, { $set: update }, { new: true }).lean();
     if(!appt) return res.status(404).json({ error: 'not found' });
     
     console.log('Updated appointment:', appt);
@@ -899,6 +1120,16 @@ app.put('/api/appointments/:ref', async (req, res) => {
 
     // broadcast update
     sendSseEvent('appointment:update', appt);
+    // Broadcast to real-time WebSocket clients
+    broadcastUpdate('appointment-updated', {
+      refNumber: appt.refNumber,
+      status: appt.status,
+      date: appt.date,
+      time: appt.time,
+      counselor: appt.counselor,
+      fname: appt.fname,
+      lname: appt.lname
+    });
     res.json({ ok: true, appointment: appt });
   }catch(err){
     console.error(err);
@@ -914,6 +1145,40 @@ app.get('/api/appointments', async (req, res) => {
   }catch(err){
     console.error(err);
     res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Count today's appointments for a student (for daily limit check)
+app.get('/api/appointments/count-today/:studentId', async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+    
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Count appointments created today for THIS student
+    const studentCount = await Appointment.countDocuments({
+      studentId: studentId,
+      createdAt: { $gte: today, $lt: tomorrow }
+    });
+    
+    // Count TOTAL appointments created today (all students)
+    const totalCount = await Appointment.countDocuments({
+      createdAt: { $gte: today, $lt: tomorrow }
+    });
+    
+    console.log(`[DAILY LIMIT] Student ${studentId}: ${studentCount} appointments, Total: ${totalCount} appointments today`);
+    res.json({ 
+      studentCount: studentCount,
+      totalCount: totalCount
+    });
+  } catch (err) {
+    console.error('[DAILY LIMIT] Error counting:', err);
+    res.status(500).json({ error: 'Failed to count appointments' });
   }
 });
 
