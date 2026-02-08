@@ -1454,3 +1454,96 @@ app.delete('/api/notifications/:id', async (req, res) => {
     res.status(500).json({ error: 'failed to delete' });
   }
 });
+
+// ----- Counselor leave management APIs -----
+// Return all leave dates (summary) and details per counselor
+app.get('/api/leaves', async (req, res) => {
+  try {
+    const withLeaves = await Counselor.find({ leaveDates: { $exists: true, $ne: [] } }).lean();
+    const map = {};
+    withLeaves.forEach(c => {
+      (c.leaveDates || []).forEach(d => {
+        map[d] = map[d] || [];
+        const name = c.title ? `${c.title} ${c.firstName} ${c.lastName}` : `${c.firstName} ${c.lastName}`;
+        map[d].push(name);
+      });
+    });
+    return res.json({ dates: Object.keys(map).sort(), details: map });
+  } catch (err) {
+    console.error('Error fetching leave dates:', err);
+    return res.status(500).json({ error: 'Failed to fetch leave dates' });
+  }
+});
+
+// Add a leave date for a counselor (body: { date: 'yyyy-mm-dd' })
+app.post('/api/counselor/:id/leaves', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.body;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
+    const counselor = await Counselor.findById(id);
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+    counselor.leaveDates = counselor.leaveDates || [];
+    if (!counselor.leaveDates.includes(date)) counselor.leaveDates.push(date);
+    await counselor.save();
+    return res.json({ success: true, leaveDates: counselor.leaveDates });
+  } catch (err) {
+    console.error('Error adding leave date:', err);
+    return res.status(500).json({ error: 'Failed to add leave date' });
+  }
+});
+
+// Remove a leave date for a counselor
+app.delete('/api/counselor/:id/leaves/:date', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const date = req.params.date;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
+    const counselor = await Counselor.findById(id);
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+    counselor.leaveDates = (counselor.leaveDates || []).filter(d => d !== date);
+    await counselor.save();
+    return res.json({ success: true, leaveDates: counselor.leaveDates });
+  } catch (err) {
+    console.error('Error removing leave date:', err);
+    return res.status(500).json({ error: 'Failed to remove leave date' });
+  }
+});
+
+// Return or create the default/current counselor record used by admin UI
+app.get('/api/counselor/current', async (req, res) => {
+  try {
+    let counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
+    if (!counselor) {
+      counselor = new Counselor({
+        title: 'Ms.',
+        firstName: 'Kristine',
+        middleName: 'Carl B.',
+        lastName: 'Lopez',
+        email: 'kristine.carl@example.com',
+        username: DEFAULT_COUNSELOR.username,
+        password: DEFAULT_COUNSELOR.password
+      });
+      await counselor.save();
+    }
+    return res.json({ counselor });
+  } catch (err) {
+    console.error('Error fetching/creating counselor:', err);
+    return res.status(500).json({ error: 'Failed to get counselor' });
+  }
+});
+
+// Update current counselor profile
+app.post('/api/counselor/current', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+    ['title','firstName','middleName','lastName','email'].forEach(k => { if (body[k] !== undefined) counselor[k] = body[k]; });
+    await counselor.save();
+    return res.json({ counselor });
+  } catch (err) {
+    console.error('Error updating counselor:', err);
+    return res.status(500).json({ error: 'Failed to update counselor' });
+  }
+});

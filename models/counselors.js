@@ -38,6 +38,11 @@ const counselorSchema = new mongoose.Schema({
     enum: ['Active', 'On Leave', 'Inactive'],
     default: 'Active'
   },
+  // Dates when this counselor is on leave (stored as yyyy-mm-dd)
+  leaveDates: {
+    type: [String],
+    default: []
+  },
   createdAt: {
     type: Date,
     default: Date.now
