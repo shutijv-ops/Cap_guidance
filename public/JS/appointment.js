@@ -121,6 +121,7 @@ if (!checkStudentLogin()) {
   let selectedTime = null; // time string
   let calendarDate = new Date(); // month being viewed
   let bookedSlotsByDate = {}; // demo store: yyyy-mm-dd => [times]
+  let blockedLeaveDates = new Set(); // yyyy-mm-dd strings blocked because counselor on leave
 
   // Time slot definitions
   const morningTimes = ['9:00 AM','10:00 AM','11:00 AM'];
@@ -422,6 +423,10 @@ if (!checkStudentLogin()) {
       if(dt < new Date(today.getFullYear(), today.getMonth(), today.getDate())){
         btn.classList.add('disabled');
         btn.disabled = true;
+      } else if(blockedLeaveDates.has(toKey(dt))) {
+        // blocked by counselor leave
+        btn.classList.add('disabled');
+        btn.disabled = true;
       } else if(!isDateAllowedByUrgency(dt, selectedUrgency || getSelectedUrgency())){
         // disable dates that are before the minimum allowed for the selected urgency
         btn.classList.add('disabled');
@@ -544,10 +549,24 @@ function setProgress(current){
     if(!bookedSlotsByDate[key].includes(timeStr)) bookedSlotsByDate[key].push(timeStr);
   }
 
+  async function fetchLeaveDates(){
+    try{
+      const res = await fetch('/api/leaves');
+      if(!res.ok) throw new Error('Failed to fetch leaves');
+      const j = await res.json();
+      blockedLeaveDates = new Set((j.dates || []).map(x => String(x).trim()));
+    }catch(err){
+      console.warn('Could not fetch leave dates:', err);
+      blockedLeaveDates = new Set();
+    }
+  }
+
   // initialize
   seedDemo();
-  renderCalendar();
-  renderTimeSlots();
+  fetchLeaveDates().then(()=>{
+    renderCalendar();
+    renderTimeSlots();
+  }).catch(()=>{ renderCalendar(); renderTimeSlots(); });
 
   // when returning from step4 to step3 ensure selected are visible
   backTo3 && backTo3.addEventListener('click', ()=> {
