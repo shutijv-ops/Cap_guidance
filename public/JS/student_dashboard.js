@@ -583,6 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSettings(studentData);
     setupSectionNavigation();
     renderAppointments(studentData.studentId, studentData.email);
+    renderMyReferrals(studentData.studentId);
     if (sortAscBtn) {
       sortAscBtn.addEventListener('click', () => renderSortedAppointments('asc'));
     }
@@ -592,6 +593,185 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutBtn) {
       logoutBtn.addEventListener('click', handleLogout);
     }
+  }
+
+  // ----- Peer Referral Modal & Actions -----
+  // Create modal HTML dynamically to avoid cluttering template further
+  const referFriendBtn = document.getElementById('referFriendBtn');
+  let referralModal = null;
+  function createReferralModal(){
+    if(referralModal) return referralModal;
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1200; overflow:auto; padding:2rem;';
+    modal.innerHTML = `
+      <div style="background:#fff; border-radius:12px; max-width:820px; width:100%; padding:1.25rem; box-shadow:0 12px 36px rgba(0,0,0,0.12);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="margin:0; color:#0a2342;">Peer Concern Referral</h3>
+          <button id="closeReferralModal" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#6b7280;">&times;</button>
+        </div>
+        <p style="color:#6b7280; margin-top:0;">All referrals are handled confidentially by the Guidance Office.</p>
+        <form id="referralForm">
+          <fieldset style="border:0; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-bottom:0.25rem;">About the Referrer</legend>
+            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Full Name*</span><input id="r_referrerName" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Student ID*</span><input id="r_referrerStudentId" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Contact Email*</span><input id="r_referrerEmail" type="email" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Relationship to Student</span>
+              <select id="r_relationship" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Friend</option><option>Classmate</option><option>Roommate</option><option>Sibling</option><option>Other</option></select>
+            </label>
+
+            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-top:0.5rem;">Student of Concern</legend>
+            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Student Full Name*</span><input id="r_studentName" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Student ID*</span><input id="r_studentId" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Course</span>
+              <select id="r_course" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;">
+                <option value="">Select Course</option>
+                <option>Bachelor of Science in Computer Science</option>
+                <option>Bachelor of Science in Information Systems</option>
+                <option>Bachelor of Science in Criminology</option>
+                <option>Bachelor of Science in Marine Biology</option>
+                <option>Bachelor of Arts in English Language Studies</option>
+                <option>Bachelor of Arts in Political Science</option>
+                <option>Bachelor of Science in Accountancy</option>
+                <option>BS in Accounting Information System</option>
+                <option>BS in Internal Auditing</option>
+                <option>BS in Management Accounting</option>
+                <option>BS in Business Administration – Financial Management</option>
+                <option>BS in Business Administration – Marketing Management</option>
+                <option>BS in Entrepreneurship</option>
+                <option>BS in Hotel and Restaurant Management</option>
+                <option>BS in Tourism Management</option>
+                <option>Bachelor of Elementary Education</option>
+                <option>Bachelor of Secondary Education – English</option>
+                <option>Bachelor of Secondary Education – Filipino</option>
+                <option>Bachelor of Secondary Education – Mathematics</option>
+                <option>Bachelor of Secondary Education – Science</option>
+                <option>Bachelor of Secondary Education – Social Studies</option>
+                <option>Bachelor of Physical Education</option>
+                <option>Bachelor of Early Childhood Education</option>
+                <option>Bachelor of Culture and Arts Education</option>
+                <option>Bachelor of Science in Civil Engineering (major in Structural Engineering)</option>
+                <option>Bachelor of Science in Computer Engineering</option>
+                <option>Bachelor of Science in Electrical Engineering</option>
+                <option>Bachelor of Science in Electronics Engineering</option>
+                <option>Bachelor of Science in Marine Transportation</option>
+                <option>Bachelor of Science in Marine Engineering</option>
+                <option>Bachelor of Science in Nursing</option>
+                <option>Bachelor of Science in Midwifery</option>
+              </select>
+            </label>
+            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Year</span>
+              <select id="r_year" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;">
+                <option value="">Select Year</option>
+                <option>1st Year</option>
+                <option>2nd Year</option>
+                <option>3rd Year</option>
+                <option>4th Year</option>
+                <option>5th+ Year</option>
+              </select>
+            </label>
+            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Does the student know about this referral?</span>
+              <select id="r_studentAware" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Yes</option><option>No</option><option>Not Sure</option></select>
+            </label>
+
+            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-top:0.5rem;">Concern Details</legend>
+            <div style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Academic"/> Academic</label>
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Emotional Stress"/> Emotional Stress</label>
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Anxiety / Shyness"/> Anxiety / Shyness</label>
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Behavioral"/> Behavioral</label>
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Social / Peer Issue"/> Social / Peer Issue</label>
+              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Other"/> Other</label>
+            </div>
+
+            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Short description (max 500 chars)*</span><textarea id="r_description" maxlength="500" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px; min-height:100px;"></textarea><div style="text-align:right; color:#6b7280; font-size:0.9rem;" id="r_descCount">0 / 500</div></label>
+
+            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Urgency Level</span>
+              <select id="r_urgency" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Normal</option><option>Urgent</option></select>
+            </label>
+
+          </fieldset>
+          <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
+            <button type="button" id="r_cancel" style="background:#fff; border:1px solid #e5e7eb; padding:0.6rem 1rem; border-radius:8px; cursor:pointer;">Cancel</button>
+            <button type="submit" id="r_submit" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 1rem; border-radius:8px; cursor:pointer;">Submit Referral</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    referralModal = modal;
+    return modal;
+  }
+
+  function openReferralModal(){
+    const modal = createReferralModal();
+    // prefill referrer info from session
+    const student = JSON.parse(sessionStorage.getItem('studentData') || '{}');
+    modal.querySelector('#r_referrerName').value = `${student.fname || ''} ${student.lname || ''}`.trim();
+    modal.querySelector('#r_referrerStudentId').value = student.studentId || student.schoolId || '';
+    modal.querySelector('#r_referrerEmail').value = student.email || '';
+    modal.style.display = 'flex';
+
+    const desc = modal.querySelector('#r_description');
+    const descCount = modal.querySelector('#r_descCount');
+    desc.addEventListener('input', ()=>{ descCount.textContent = `${desc.value.length} / 500`; });
+
+    modal.querySelector('#r_cancel').addEventListener('click', ()=> modal.style.display = 'none');
+
+    const form = modal.querySelector('#referralForm');
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const payload = {
+        referrerName: modal.querySelector('#r_referrerName').value.trim(),
+        referrerStudentId: modal.querySelector('#r_referrerStudentId').value.trim(),
+        referrerEmail: modal.querySelector('#r_referrerEmail').value.trim(),
+        relationship: modal.querySelector('#r_relationship').value,
+        studentName: modal.querySelector('#r_studentName').value.trim(),
+        studentId: modal.querySelector('#r_studentId').value.trim(),
+        studentCourseYearSection: ((modal.querySelector('#r_course').value || '').trim() + (modal.querySelector('#r_year').value ? ' - ' + modal.querySelector('#r_year').value.trim() : '')).trim(),
+        studentAware: modal.querySelector('#r_studentAware').value,
+        concernTypes: Array.from(modal.querySelectorAll('input[name="r_concernType"]:checked')).map(i=>i.value),
+        description: modal.querySelector('#r_description').value.trim(),
+        urgency: modal.querySelector('#r_urgency').value
+      };
+
+      // Basic validation
+      if(!payload.referrerName || !payload.referrerStudentId || !payload.referrerEmail || !payload.studentName || !payload.studentId || !payload.description || !modal.querySelector('#r_course').value || !modal.querySelector('#r_year').value){
+        alert('Please complete required fields');
+        return;
+      }
+
+      try{
+        const res = await fetch('/api/referrals', {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        });
+        if(!res.ok){ const j = await res.json().catch(()=>({})); alert('Failed to submit referral: '+(j.error||res.statusText)); return; }
+        const j = await res.json();
+        alert('Referral submitted — thank you.');
+        modal.style.display = 'none';
+        // refresh list
+        renderMyReferrals(payload.referrerStudentId);
+      }catch(err){ console.error('Submit referral failed', err); alert('Error submitting referral'); }
+    }, { once: true });
+  }
+
+  if(referFriendBtn) referFriendBtn.addEventListener('click', openReferralModal);
+
+  // Render the student's referrals list
+  async function renderMyReferrals(studentId){
+    const el = document.getElementById('myReferralsList');
+    if(!el) return;
+    try{
+      const res = await fetch(`/api/referrals?studentId=${encodeURIComponent(studentId)}`);
+      if(!res.ok) throw new Error('Failed');
+      const j = await res.json();
+      const items = j.referrals || [];
+      if(items.length === 0){ el.innerHTML = '<div style="padding:1rem; color:#6b7280;">You have not submitted any peer referrals.</div>'; return; }
+      el.innerHTML = items.map(it=>{
+        return `<div style="border-bottom:1px solid #eef5fb; padding:0.5rem 0;"><div style="display:flex; justify-content:space-between; align-items:center;"><div><strong>${it.studentName}</strong> <div style="color:#6b7280; font-size:0.9rem;">Ref ID: ${it.refId} • ${new Date(it.createdAt).toLocaleString()}</div></div><div style="text-align:right;"><div style="font-weight:700;">${it.urgency}</div><div style="color:#6b7280; font-size:0.9rem;">Status: ${it.status}</div></div></div><div style="margin-top:0.5rem; color:#0a2342;">Concern: ${(it.concernTypes || []).join(', ')} — ${it.description}</div></div>`;
+      }).join('');
+    }catch(err){ console.error('Could not load referrals', err); el.innerHTML = '<div style="padding:1rem; color:#dc2626;">Could not load referrals.</div>'; }
   }
 });
 

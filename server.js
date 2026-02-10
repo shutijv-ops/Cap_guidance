@@ -4,6 +4,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
 const Student = require('./models/students');
+const Referral = require('./models/referrals');
 const sgMail = require('@sendgrid/mail');
 const socketIO = require('socket.io');
 
@@ -1563,5 +1564,90 @@ app.post('/api/counselor/current', async (req, res) => {
   } catch (err) {
     console.error('Error updating counselor:', err);
     return res.status(500).json({ error: 'Failed to update counselor' });
+  }
+});
+
+// Create a peer referral (student submits)
+app.post('/api/referrals', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const required = ['referrerName','referrerStudentId','referrerEmail','relationship','studentName','studentId','concernTypes','description'];
+    for(const k of required){ if(!body[k]) return res.status(400).json({ error: `${k} is required` }); }
+
+    if(String(body.description).length > 500) return res.status(400).json({ error: 'description must be <= 500 chars' });
+
+    // Generate simple refId
+    const refId = 'PR' + Date.now().toString(36).toUpperCase().slice(-8);
+
+    const doc = new Referral({
+      refId,
+      referrerName: body.referrerName,
+      referrerStudentId: body.referrerStudentId,
+      referrerEmail: body.referrerEmail,
+      relationship: body.relationship,
+      studentName: body.studentName,
+      studentId: body.studentId,
+      studentCourseYearSection: body.studentCourseYearSection || '',
+      studentAware: body.studentAware || 'Not Sure',
+      concernTypes: Array.isArray(body.concernTypes) ? body.concernTypes : (body.concernTypes ? [body.concernTypes] : []),
+      description: body.description,
+      urgency: body.urgency === 'Urgent' ? 'Urgent' : 'Normal',
+      submittedByStudentId: body.referrerStudentId
+    });
+
+    await doc.save();
+    // Broadcast simple SSE event if desired
+    try { sendSseEvent('referral', doc); } catch(e){}
+
+    res.json({ ok: true, referral: doc });
+  } catch (err) {
+    console.error('Failed to create referral', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// List referrals - if ?studentId= then return only those submitted by student
+app.get('/api/referrals', async (req, res) => {
+  try {
+    const { studentId } = req.query || {};
+    const q = {};
+    if (studentId) q.submittedByStudentId = studentId;
+    const items = await Referral.find(q).sort({ createdAt: -1 }).lean();
+    res.json({ referrals: items });
+  } catch (err) {
+    console.error('Failed to list referrals', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Get referral details
+app.get('/api/referrals/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const item = await Referral.findOne({ refId: id });
+    if(!item) return res.status(404).json({ error: 'not found' });
+    res.json({ referral: item });
+  } catch (err) {
+    console.error('Failed to get referral', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Update referral (counselor actions: add notes, update status)
+app.put('/api/referrals/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const body = req.body || {};
+    const item = await Referral.findOne({ refId: id });
+    if(!item) return res.status(404).json({ error: 'not found' });
+
+    if(body.counselorNotes !== undefined) item.counselorNotes = body.counselorNotes;
+    if(body.status !== undefined && ['Pending','Reviewed','Action Taken','Cancelled'].includes(body.status)) item.status = body.status;
+
+    await item.save();
+    res.json({ ok: true, referral: item });
+  } catch (err) {
+    console.error('Failed to update referral', err);
+    res.status(500).json({ error: 'internal' });
   }
 });

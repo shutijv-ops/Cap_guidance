@@ -7,17 +7,43 @@
 function checkStudentLogin() {
   const studentData = sessionStorage.getItem('studentData');
   const accessedFromDashboard = sessionStorage.getItem('appointmentAccessFromDashboard');
-  
-  if (!studentData) {
-    // Not logged in - redirect to login
-    window.location.href = '/HTML/landing.html?showLogin=true';
-    return false;
+
+  if (studentData) {
+    // Clear the access flag after checking
+    sessionStorage.removeItem('appointmentAccessFromDashboard');
+    return true;
   }
-  
-  // Clear the access flag after checking
-  sessionStorage.removeItem('appointmentAccessFromDashboard');
-  
-  return true;
+
+  // If no session data yet, set up a short-lived listener for postMessage
+  // The admin page will post { source: 'admin-referral', studentData, prefill }
+  let received = false;
+  function onMsg(e) {
+    try {
+      if (e.origin !== location.origin) return;
+      const d = e.data || {};
+      if (d && d.source === 'admin-referral') {
+        if (d.studentData) {
+          sessionStorage.setItem('studentData', JSON.stringify(d.studentData));
+          sessionStorage.setItem('appointmentAccessFromDashboard', 'true');
+        }
+        if (d.prefill) {
+          sessionStorage.setItem('prefillReason', d.prefill.reason || '');
+          sessionStorage.setItem('prefillUrgency', d.prefill.urgency || '');
+        }
+        received = true;
+        window.removeEventListener('message', onMsg);
+      }
+    } catch (err) { console.warn('postMessage handler error', err); }
+  }
+  window.addEventListener('message', onMsg);
+
+  // Let the opener know we are ready to receive data (if opener exists)
+  try { if (window.opener && window.opener.postMessage) window.opener.postMessage({ source: 'appointment-ready' }, location.origin); } catch (e) {}
+
+  // Wait briefly for admin to post data; if received, allow page to continue.
+  // If not received after timeout, redirect to login as before.
+  // Return value: false here means caller should show redirect UI and stop execution.
+  return false;
 }
 
 // Set a flag when accessing from dashboard
@@ -27,9 +53,28 @@ function setDashboardAccess() {
 
 // Run login check immediately
 if (!checkStudentLogin()) {
-  // Stop execution and show loading message
-  document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#f5f5f5;"><div style="text-align:center;"><p style="font-size:18px; color:#333;">Redirecting to login...</p></div></div>';
-  throw new Error('Unauthorized access - student not logged in');
+  // No session data yet — show waiting UI while listening for admin postMessage.
+  document.body.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100vh; background:#f5f5f5;"><div style="text-align:center;"><p style="font-size:18px; color:#333;">Waiting for referral data from admin...</p><p style="color:#666; margin-top:8px;">If this page does not load, you will be redirected to login.</p></div></div>';
+
+  // Poll for sessionStorage.studentData for a short period, then redirect.
+  const maxWait = 2500; // ms
+  const intervalMs = 200;
+  let waited = 0;
+  const poll = setInterval(() => {
+    if (sessionStorage.getItem('studentData')) {
+      clearInterval(poll);
+      // reload the page to allow normal initialization with the newly-provided data
+      window.location.reload();
+      return;
+    }
+    waited += intervalMs;
+    if (waited >= maxWait) {
+      clearInterval(poll);
+      window.location.href = '/HTML/landing.html?showLogin=true';
+    }
+  }, intervalMs);
+
+  throw new Error('Waiting for referral data');
 }
 
 (() => {
@@ -81,6 +126,31 @@ if (!checkStudentLogin()) {
     }
   } catch (err) {
     console.warn('Could not parse studentData from sessionStorage', err);
+  }
+
+  // Prefill reason and urgency if provided by session (e.g., admin -> create from referral)
+  try {
+    const preReason = sessionStorage.getItem('prefillReason');
+    if (preReason && reasonInput) {
+      reasonInput.value = preReason;
+      charCount.textContent = `${reasonInput.value.length} / ${reasonInput.maxLength}`;
+      // Clear after using
+      sessionStorage.removeItem('prefillReason');
+    }
+    const preUrg = sessionStorage.getItem('prefillUrgency');
+    if (preUrg) {
+      // match radio by value (case-insensitive)
+      for (const r of urgencyRadios) {
+        if (r.value && r.value.toLowerCase() === preUrg.toLowerCase()) {
+          r.checked = true;
+          selectedUrgency = r.value;
+          break;
+        }
+      }
+      sessionStorage.removeItem('prefillUrgency');
+    }
+  } catch (e) {
+    console.warn('Could not apply prefill reason/urgency', e);
   }
 
   // Calendar and slots

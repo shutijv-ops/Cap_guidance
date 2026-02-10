@@ -45,6 +45,7 @@
         <button data-view="dashboard" class="nav-item active"><span class="icon">🏠</span>Dashboard</button>
         <button data-view="appointments" class="nav-item"><span class="icon">📅</span>Appointments</button>
         <button data-view="students" class="nav-item"><span class="icon">🎓</span>Students</button>
+        <button data-view="referrals" class="nav-item"><span class="icon">🤝</span>Peer Referrals</button>
         <button data-view="reports" class="nav-item"><span class="icon">📈</span>Reports</button>
         <button data-view="settings" class="nav-item"><span class="icon">⚙️</span>Settings</button>
       </nav>
@@ -351,6 +352,87 @@
         </div>
 
         <!-- ===== Counselors View ===== -->
+        <!-- Peer Referral Details Modal -->
+        <div id="referralDetailsModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2100;">
+          <div class="modal-content" style="width:100%; max-width:680px; background:#fff; border-radius:12px; padding:1.25rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <h3 style="margin:0; font-size:1.15rem; color:#0a2342;">Peer Concern Referral Details</h3>
+              <button id="closeReferralDetailsBtn" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#6b7280;">&times;</button>
+            </div>
+            <div id="referralDetailsBody">
+              <!-- Filled by JS -->
+            </div>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+              <button id="createApptFromReferralBtn" class="btn" style="background:#d4af37; color:#0a2342; border:none; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer;">Create Appointment</button>
+              <button id="saveReferralNotesBtn" class="btn" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer;">Save</button>
+              <button id="closeReferralModalBtn2" class="btn ghost" style="background:#fff; color:#0a2342; border:1px solid #e5e7eb; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer;">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Referrals View (SPA) -->
+        <div class="view hidden" id="view-referrals" data-view="referrals">
+          <div class="page-header">
+            <h2>Peer Referrals</h2>
+            <div class="page-actions">
+              <button id="refreshReferralsBtn" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="requests-table" id="referralsTable">
+                <thead>
+                  <tr>
+                    <th>Referral ID</th>
+                    <th>Referred Student</th>
+                    <th>Concern Type</th>
+                    <th>Urgency</th>
+                    <th>Date Submitted</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <!-- Schedule From Referral Modal -->
+        <div id="scheduleFromReferralModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2200;">
+          <div class="modal-content" style="width:100%; max-width:720px; background:#fff; border-radius:12px; padding:1.25rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <h3 style="margin:0; font-size:1.15rem; color:#0a2342;">Schedule Appointment From Referral</h3>
+              <button id="closeScheduleModalBtn" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#6b7280;">&times;</button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 300px; gap:1rem;">
+              <div>
+                <label style="display:block; font-weight:600; margin-bottom:0.5rem;">Select Date</label>
+                <input type="date" id="schedDate" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6;" />
+                <div style="margin-top:0.75rem;">
+                  <label style="font-weight:600; display:block; margin-bottom:0.5rem;">Available Slots</label>
+                  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;" id="schedMorningSlots"></div>
+                  <div style="display:flex; gap:0.5rem; flex-wrap:wrap;" id="schedAfternoonSlots"></div>
+                </div>
+              </div>
+              <div style="border-left:1px solid #eef2f7; padding-left:1rem;">
+                <div style="font-weight:600; margin-bottom:0.5rem;">Selected Student</div>
+                <div id="schedStudentInfo" style="margin-bottom:1rem; color:#0a2342; font-weight:600;">-</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">Selected Slot</div>
+                <div id="schedSelectedSlot" style="margin-bottom:1rem; color:#374151;">None</div>
+                <div style="font-weight:600; margin-bottom:0.25rem;">Urgency</div>
+                <select id="schedUrgency" style="width:100%; padding:0.5rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"><option>Normal</option><option>Urgent</option><option>Crisis</option></select>
+                <div style="font-weight:600; margin-bottom:0.25rem;">Counselor Notes (optional)</div>
+                <textarea id="schedCounselorNotes" rows="5" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"></textarea>
+                <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                  <button id="schedCreateBtn" class="btn" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer;">Create Appointment</button>
+                  <button id="schedCancelBtn" class="btn ghost" style="background:#fff; color:#0a2342; border:1px solid #e5e7eb; padding:0.6rem 0.9rem; border-radius:8px; cursor:pointer;">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="view hidden" id="view-counselors" data-view="counselors">
           <div class="page-header">
             <h2>Counselors</h2>
@@ -749,6 +831,8 @@
           <div id="modalReason" class="reason-text" style="font-weight:600; color:#1f2937; line-height:1.5;">-</div>
         </div>
       </div>
+
+        <!-- (referrals view moved to main views area) -->
     </div>
     <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #e5e7eb; padding-top:1rem;">
       <button class="btn ghost" id="closeAppointmentModalBtn2" style="flex:1; padding:0.75rem; background:#fff; color:#0a2342; border:2px solid #0a2342; border-radius:8px; cursor:pointer; font-weight:600;">Close</button>

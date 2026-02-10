@@ -78,7 +78,10 @@
       <section id="appointments" class="active-section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
           <h2 style="margin: 0;">My Appointments</h2>
-          <button id="scheduleApptBtn" onclick="sessionStorage.setItem('appointmentAccessFromDashboard', 'true'); window.location.href='appointment.html';" style="background: #d4af37; color: #0a2342; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">Schedule an Appointment</button>
+          <div style="display:flex; gap:0.75rem;">
+            <button id="referFriendBtn" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 1rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.95rem;">Refer a Friend to Guidance</button>
+            <button id="scheduleApptBtn" onclick="sessionStorage.setItem('appointmentAccessFromDashboard', 'true'); window.location.href='appointment.html';" style="background: #d4af37; color: #0a2342; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">Schedule an Appointment</button>
+          </div>
         </div>
         <!-- Skeleton placeholder for appointments list -->
         <div class="skeleton-placeholder" style="margin-top:12px;">
@@ -97,6 +100,12 @@
         <div class="appointments-list">
           <!-- Appointments will be loaded here -->
           <div class="loading">Loading your appointments...</div>
+        </div>
+
+        <!-- Peer Referrals List -->
+        <div style="margin-top:2rem;">
+          <h3 style="margin-bottom:0.75rem; color:#0a2342;">My Peer Concern Referrals</h3>
+          <div id="myReferralsList" style="background:#fff; border:1px solid #eef5fb; padding:1rem; border-radius:10px; min-height:80px;">Loading referrals...</div>
         </div>
 
         <!-- Full Appointment Request Modal (Multi-Step Form) -->
