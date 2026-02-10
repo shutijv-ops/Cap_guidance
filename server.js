@@ -345,20 +345,38 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 // Get student appointments by student ID and email
 app.post('/api/appointments/student', async (req, res) => {
-  const { studentId, email } = req.body;
+  // Accept either `studentId` (camelCase) or `studentid` (lowercase) and match email case-insensitively
+  const { studentId, email, studentid } = req.body || {};
 
-  if (!studentId || !email) {
-    return res.status(400).json({ error: 'Student ID and email are required' });
+  if (!studentId && !studentid && !email) {
+    return res.status(400).json({ error: 'studentId/studentid or email is required' });
   }
 
   try {
-    const appointments = await Appointment.find({
-      studentid: studentId,
-      email: email
-    }).sort({ createdAt: -1 });
+    const sid = studentId || studentid || null;
+    const mail = email ? String(email).trim() : null;
 
+    // Build flexible query: prefer both sid+email, else sid-only, else email-only (case-insensitive)
+    let query = {};
+    // escape helper for regex
+    const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (sid && mail) {
+      // match by either student id OR email to be tolerant of mismatched fields
+      query = { $or: [
+        { studentid: { $regex: `^${escapeRegex(sid)}$`, $options: 'i' } },
+        { email: { $regex: `^${escapeRegex(mail)}$`, $options: 'i' } }
+      ] };
+    } else if (sid) {
+      query = { studentid: { $regex: `^${escapeRegex(sid)}$`, $options: 'i' } };
+    } else if (mail) {
+      query = { email: { $regex: `^${escapeRegex(mail)}$`, $options: 'i' } };
+    }
+
+    console.log('[API] Fetching student appointments with query:', JSON.stringify(query));
+    const appointments = await Appointment.find(query).sort({ createdAt: -1 });
     res.json(appointments);
   } catch (error) {
+    console.error('[API] Error fetching student appointments:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
