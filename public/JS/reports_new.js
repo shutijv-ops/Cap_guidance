@@ -29,6 +29,7 @@ const DISTRIBUTION_COLORS = [
   '#51cf66', '#a9e34b', '#f06595', '#fd7e14'
 ];
 
+
 // Get 12 months structure
 function getMonths() {
   const year = new Date().getFullYear();
