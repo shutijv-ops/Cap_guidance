@@ -1614,3 +1614,15 @@ body::before {
   #referralDetailsBody { font-size: 14px; }
   .modal-content { width: calc(100% - 24px); }
 }
+
+/* Referral details improvements */
+#referralDetailsBody { display:block; color:#0a2342; }
+#referralDetailsBody .details-grid { grid-template-columns: 1fr 1fr; gap:12px; }
+#referralDetailsBody .detail-group { background:#fff; padding:8px; border-radius:8px; border:1px solid #eef2f7; }
+
+/* Schedule modal tweaks */
+#scheduleFromReferralModal .modal-content { max-width: 820px; width:100%; }
+#scheduleFromReferralModal .modal-body { padding:1rem 1.25rem; }
+#schedMorningSlots button, #schedAfternoonSlots button { margin:4px 4px 0 0; padding:0.5rem 0.6rem; border-radius:8px; border:1px solid #e6eef6; background:#fff; cursor:pointer; }
+#schedMorningSlots button:hover:not(:disabled), #schedAfternoonSlots button:hover:not(:disabled) { background:#dbeafe; border-color:#0284c7; }
+#schedMorningSlots button:disabled, #schedAfternoonSlots button:disabled { opacity:0.6; cursor:not-allowed; }

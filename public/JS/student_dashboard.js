@@ -602,30 +602,33 @@ document.addEventListener('DOMContentLoaded', () => {
   function createReferralModal(){
     if(referralModal) return referralModal;
     const modal = document.createElement('div');
-    modal.className = 'modal';
+    modal.className = 'modal referral-modal';
     modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(10,34,66,0.18); justify-content:center; align-items:center; z-index:1200; overflow:auto; padding:2rem;';
     modal.innerHTML = `
-      <div style="background:#fff; border-radius:12px; max-width:820px; width:100%; padding:1.25rem; box-shadow:0 12px 36px rgba(0,0,0,0.12);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h3 style="margin:0; color:#0a2342;">Peer Concern Referral</h3>
-          <button id="closeReferralModal" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:#6b7280;">&times;</button>
+      <div class="modal-content referral-content" role="dialog" aria-modal="true" aria-label="Peer Concern Referral">
+        <div class="referral-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div>
+            <h3 style="margin:0; color:#0a2342;">Peer Concern Referral</h3>
+            <div style="color:#6b7280; font-size:0.95rem; margin-top:4px;">All referrals are handled confidentially by the Guidance Office.</div>
+          </div>
+          <button id="closeReferralModal" class="close-modal">&times;</button>
         </div>
-        <p style="color:#6b7280; margin-top:0;">All referrals are handled confidentially by the Guidance Office.</p>
+        <div class="referral-body" style="margin-top:12px;">
         <form id="referralForm">
-          <fieldset style="border:0; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-bottom:0.25rem;">About the Referrer</legend>
-            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Full Name*</span><input id="r_referrerName" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Student ID*</span><input id="r_referrerStudentId" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Contact Email*</span><input id="r_referrerEmail" type="email" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Relationship to Student</span>
-              <select id="r_relationship" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Friend</option><option>Classmate</option><option>Roommate</option><option>Sibling</option><option>Other</option></select>
+          <fieldset class="referral-grid">
+            <legend class="sr-only">About the Referrer</legend>
+            <label class="ref-label full"><span class="ref-label-title">Full Name*</span><input id="r_referrerName" required class="ref-input"/></label>
+            <label class="ref-label"><span class="ref-label-title">Student ID*</span><input id="r_referrerStudentId" required class="ref-input"/></label>
+            <label class="ref-label"><span class="ref-label-title">Contact Email*</span><input id="r_referrerEmail" type="email" required class="ref-input"/></label>
+            <label class="ref-label"><span class="ref-label-title">Relationship to Student</span>
+              <select id="r_relationship" class="ref-input"><option>Friend</option><option>Classmate</option><option>Roommate</option><option>Sibling</option><option>Other</option></select>
             </label>
 
-            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-top:0.5rem;">Student of Concern</legend>
-            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Student Full Name*</span><input id="r_studentName" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Student ID*</span><input id="r_studentId" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"/></label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Course</span>
-              <select id="r_course" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;">
+            <legend class="sr-only">Student of Concern</legend>
+            <label class="ref-label full"><span class="ref-label-title">Student Full Name*</span><input id="r_studentName" required class="ref-input"/></label>
+            <label class="ref-label"><span class="ref-label-title">Student ID*</span><input id="r_studentId" required class="ref-input"/></label>
+            <label class="ref-label"><span class="ref-label-title">Course</span>
+              <select id="r_course" class="ref-input">
                 <option value="">Select Course</option>
                 <option>Bachelor of Science in Computer Science</option>
                 <option>Bachelor of Science in Information Systems</option>
@@ -661,8 +664,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option>Bachelor of Science in Midwifery</option>
               </select>
             </label>
-            <label style="display:flex; gap:0.5rem; flex-direction:column;"><span>Year</span>
-              <select id="r_year" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;">
+            <label class="ref-label"><span class="ref-label-title">Year</span>
+              <select id="r_year" class="ref-input">
                 <option value="">Select Year</option>
                 <option>1st Year</option>
                 <option>2nd Year</option>
@@ -671,32 +674,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 <option>5th+ Year</option>
               </select>
             </label>
-            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Does the student know about this referral?</span>
-              <select id="r_studentAware" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Yes</option><option>No</option><option>Not Sure</option></select>
+            <label class="ref-label full"><span class="ref-label-title">Does the student know about this referral?</span>
+              <select id="r_studentAware" class="ref-input"><option>Yes</option><option>No</option><option>Not Sure</option></select>
             </label>
 
-            <legend style="grid-column:1 / -1; font-weight:700; color:#0a2342; margin-top:0.5rem;">Concern Details</legend>
-            <div style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-wrap:wrap;">
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Academic"/> Academic</label>
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Emotional Stress"/> Emotional Stress</label>
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Anxiety / Shyness"/> Anxiety / Shyness</label>
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Behavioral"/> Behavioral</label>
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Social / Peer Issue"/> Social / Peer Issue</label>
-              <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" name="r_concernType" value="Other"/> Other</label>
+            <legend class="sr-only">Concern Details</legend>
+            <div class="concern-types" style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Academic"/> Academic</label>
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Emotional Stress"/> Emotional Stress</label>
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Anxiety / Shyness"/> Anxiety / Shyness</label>
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Behavioral"/> Behavioral</label>
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Social / Peer Issue"/> Social / Peer Issue</label>
+              <label class="concern-item"><input type="checkbox" name="r_concernType" value="Other"/> Other</label>
             </div>
 
-            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Short description (max 500 chars)*</span><textarea id="r_description" maxlength="500" required style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px; min-height:100px;"></textarea><div style="text-align:right; color:#6b7280; font-size:0.9rem;" id="r_descCount">0 / 500</div></label>
+            <label class="ref-label full"><span class="ref-label-title">Short description (max 500 chars)*</span>
+              <textarea id="r_description" maxlength="500" required class="ref-textarea"></textarea>
+              <div class="desc-count" id="r_descCount">0 / 500</div>
+            </label>
 
-            <label style="grid-column:1 / -1; display:flex; gap:0.5rem; flex-direction:column;"><span>Urgency Level</span>
-              <select id="r_urgency" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;"><option>Normal</option><option>Urgent</option></select>
+            <label class="ref-label full"><span class="ref-label-title">Urgency Level</span>
+              <select id="r_urgency" class="ref-input"><option>Normal</option><option>Urgent</option></select>
             </label>
 
           </fieldset>
-          <div style="display:flex; gap:0.75rem; justify-content:flex-end; margin-top:1rem;">
-            <button type="button" id="r_cancel" style="background:#fff; border:1px solid #e5e7eb; padding:0.6rem 1rem; border-radius:8px; cursor:pointer;">Cancel</button>
-            <button type="submit" id="r_submit" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 1rem; border-radius:8px; cursor:pointer;">Submit Referral</button>
+          <div class="referral-actions">
+            <button type="button" id="r_cancel" class="btn btn-ghost">Cancel</button>
+            <button type="submit" id="r_submit" class="btn btn-primary">Submit Referral</button>
           </div>
         </form>
+        </div>
       </div>
     `;
     document.body.appendChild(modal);
