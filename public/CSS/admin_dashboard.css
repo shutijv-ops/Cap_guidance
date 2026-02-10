@@ -1589,3 +1589,28 @@ body::before {
     width: 100%;
   }
 }
+
+/* Enhanced modal content for referral flow */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid #eef2f7;
+}
+.modal-header h3 { margin: 0; font-size: 1.1rem; color: #0a2342; }
+.close-modal { background: none; border: none; font-size: 1.35rem; color: #6b7280; cursor: pointer; }
+.modal-body { padding: 1rem 1.25rem; }
+.modal-footer { padding: 0.8rem 1.25rem; border-top: 1px solid #eef2f7; display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+/* Referral table specific tweaks */
+#referralsTable thead th { font-size: 13px; color: #6b7280; }
+#referralsTable tbody td { padding: 12px 14px; }
+.view-referral-btn { background: linear-gradient(90deg,#6366f1,#06b6d4); color: #fff; border: none; padding: 6px 10px; border-radius: 8px; }
+.view-referral-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.08); }
+
+/* Make referral details more readable on small screens */
+@media (max-width: 760px) {
+  #referralDetailsBody { font-size: 14px; }
+  .modal-content { width: calc(100% - 24px); }
+}
