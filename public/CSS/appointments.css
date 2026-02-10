@@ -5,6 +5,18 @@
   font-weight: 500;
 }
 
+/* Ensure appointment tabs are clickable and above nearby elements */
+#appointmentTabs {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.tabs .tab {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 .pill {
   background-color: #dbeafe;
   color: #1e40af;
