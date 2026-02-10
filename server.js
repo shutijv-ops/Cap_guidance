@@ -98,54 +98,57 @@ async function sendAppointmentEmail(appt, type = 'approved') {
 
     await sgMail.send(msg);
     console.log('Approval email sent to', to);
-    try {
-      // record notification in DB
-      if (typeof Notification !== 'undefined') {
-        // Create student full name
-        const studentName = [
-          appt.fname,
-          appt.mname ? appt.mname + ' ' : '',
-          appt.lname,
-          appt.suffix ? ' ' + appt.suffix : ''
-        ].join('').trim();
+        try {
+          // record notification in DB
+          if (typeof Notification !== 'undefined') {
+            // Create student full name
+            const studentName = [
+              appt.fname,
+              appt.mname ? appt.mname + ' ' : '',
+              appt.lname,
+              appt.suffix ? ' ' + appt.suffix : ''
+            ].join('').trim();
 
-        const notif = await Notification.create({
-          type: type === 'rescheduled' ? 'rescheduled' : 'approved',
-          refNumber: appt.refNumber,
-          email: to,
-          status: 'sent',
-          message: `Email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)} was successfully sent.`
-        });
-        // broadcast notification over SSE so admin UI can update in realtime
-        try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
-      }
-    } catch (dbErr) {
-      console.error('Failed to create notification record (sent):', dbErr);
-    }
+            const notif = await Notification.create({
+              type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+              refNumber: appt.refNumber,
+              email: to,
+              status: 'sent',
+              message: `Email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)} was successfully sent.`
+            });
+            // broadcast notification over SSE so admin UI can update in realtime
+            try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
+            // Also broadcast via Socket.IO so connected admin UIs receive it
+            try { if (typeof broadcastUpdate === 'function') broadcastUpdate('notification', notif); } catch (e) { /* ignore */ }
+          }
+        } catch (dbErr) {
+          console.error('Failed to create notification record (sent):', dbErr);
+        }
   } catch (err) {
     console.error('Failed to send approval email:', err?.response?.body?.errors || err);
-    try {
-      if (typeof Notification !== 'undefined') {
-        // Create student full name
-        const studentName = [
-          appt.fname,
-          appt.mname ? appt.mname + ' ' : '',
-          appt.lname,
-          appt.suffix ? ' ' + appt.suffix : ''
-        ].join('').trim();
+        try {
+        if (typeof Notification !== 'undefined') {
+          // Create student full name
+          const studentName = [
+            appt.fname,
+            appt.mname ? appt.mname + ' ' : '',
+            appt.lname,
+            appt.suffix ? ' ' + appt.suffix : ''
+          ].join('').trim();
 
-        const notif = await Notification.create({
-          type: type === 'rescheduled' ? 'rescheduled' : 'approved',
-          refNumber: appt.refNumber,
-          email: appt.email,
-          status: 'failed',
-          message: `Failed to send email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)}. Error: ${err.message || 'Unknown error'}`
-        });
-        try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
+          const notif = await Notification.create({
+            type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+            refNumber: appt.refNumber,
+            email: appt.email,
+            status: 'failed',
+            message: `Failed to send email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)}. Error: ${err.message || 'Unknown error'}`
+          });
+          try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
+          try { if (typeof broadcastUpdate === 'function') broadcastUpdate('notification', notif); } catch (e) { /* ignore */ }
+        }
+      } catch (dbErr2) {
+        console.error('Failed to create notification record (failed):', dbErr2);
       }
-    } catch (dbErr2) {
-      console.error('Failed to create notification record (failed):', dbErr2);
-    }
   }
 }
 
@@ -185,6 +188,7 @@ const notificationSchema = new mongoose.Schema({
   refNumber: String,
   email: String,
   status: { type: String, enum: ['sent','failed'], required: true },
+  read: { type: Boolean, default: false },
   message: String,
   createdAt: { type: Date, default: Date.now }
 });
@@ -1471,6 +1475,32 @@ app.delete('/api/notifications/:id', async (req, res) => {
   } catch (err) {
     console.error('Failed to delete notification', err);
     res.status(500).json({ error: 'failed to delete' });
+  }
+});
+
+// Mark a notification as read (does not delete)
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const doc = await Notification.findByIdAndUpdate(id, { $set: { read: true } }, { new: true }).lean();
+    if (!doc) return res.status(404).json({ error: 'not found' });
+    // broadcast update so clients can sync
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('notification-updated', doc); } catch (e) { /* ignore */ }
+    res.json({ ok: true, notification: doc });
+  } catch (err) {
+    console.error('Failed to mark notification read', err);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+// Clear all notifications (administrative)
+app.delete('/api/notifications', async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to clear notifications', err);
+    res.status(500).json({ error: 'failed' });
   }
 });
 
