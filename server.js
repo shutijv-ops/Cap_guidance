@@ -57,6 +57,10 @@ async function sendAppointmentEmail(appt, type = 'approved') {
       subject = `Your JRMSU Counseling Appointment has been Rescheduled - Ref ${appt.refNumber}`;
       statusText = 'rescheduled and approved';
       additionalNote = '<p><strong>Note:</strong> This appointment has been rescheduled by the guidance office. If this new schedule does not work for you, please contact us immediately.</p>';
+    } else if (type === 'completed') {
+      subject = `Your JRMSU Counseling Appointment has been Completed - Ref ${appt.refNumber}`;
+      statusText = 'completed';
+      additionalNote = '<p>Thank you for attending your counseling session. If you have follow-up concerns or need additional support, please reach out to the guidance office.</p>';
     } else {
       subject = `Your JRMSU Counseling Appointment is Approved - Ref ${appt.refNumber}`;
       statusText = 'approved';
@@ -70,7 +74,7 @@ async function sendAppointmentEmail(appt, type = 'approved') {
       <ul>
         <li>Date: ${formattedDate}</li>
         <li>Time: ${formattedTime}</li>
-        <li>Counselor: ${appt.counselor || 'To be assigned'}</li>
+        <li>Counselor: ${appt.counselor || 'Ms. Kristine Carl B. Lopez'}</li>
         <li>Venue: JRMSU Guidance Office</li>
       </ul>
       ${additionalNote}
@@ -110,7 +114,7 @@ async function sendAppointmentEmail(appt, type = 'approved') {
             ].join('').trim();
 
             const notif = await Notification.create({
-              type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+              type: type === 'rescheduled' ? 'rescheduled' : (type === 'completed' ? 'completed' : 'approved'),
               refNumber: appt.refNumber,
               email: to,
               status: 'sent',
@@ -137,7 +141,7 @@ async function sendAppointmentEmail(appt, type = 'approved') {
           ].join('').trim();
 
           const notif = await Notification.create({
-            type: type === 'rescheduled' ? 'rescheduled' : 'approved',
+            type: type === 'rescheduled' ? 'rescheduled' : (type === 'completed' ? 'completed' : 'approved'),
             refNumber: appt.refNumber,
             email: appt.email,
             status: 'failed',
@@ -184,7 +188,7 @@ const ApprovedSchedule = mongoose.model('ApprovedSchedule', approvedScheduleSche
 
 // Notification schema for admin (tracks email send success/failure)
 const notificationSchema = new mongoose.Schema({
-  type: { type: String, enum: ['approved','rescheduled','system','other'], default: 'other' },
+  type: { type: String, enum: ['approved','rescheduled','completed','system','other'], default: 'other' },
   refNumber: String,
   email: String,
   status: { type: String, enum: ['sent','failed'], required: true },
@@ -1257,6 +1261,14 @@ app.put('/api/appointments/:ref', async (req, res) => {
             newDate: appt.date,
             newTime: appt.time
           });
+        });
+      }
+
+      // If appointment was just marked completed, send completion email
+      if (newStatus === 'completed' && priorStatus !== 'completed') {
+        console.log('Detected completion for', appt.refNumber, '— sending completion email');
+        sendAppointmentEmail(appt, 'completed').catch(err => {
+          console.error('Failed to send completion email:', err);
         });
       }
     }catch(e){ console.error('Failed to sync ApprovedSchedule on update:', e); }
