@@ -198,6 +198,16 @@ const notificationSchema = new mongoose.Schema({
 });
 const Notification = mongoose.model('Notification', notificationSchema);
 
+// Activity Log schema (records admin actions, login/logout, settings changes)
+const activityLogSchema = new mongoose.Schema({
+  actor: { type: String, default: 'admin' },
+  action: { type: String, required: true },
+  details: { type: String, default: '' },
+  ip: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -503,6 +513,13 @@ app.post('/api/admin/login', (req, res) => {
   if(username.trim().toLowerCase() === DEFAULT_COUNSELOR.username && password === adminPassword){
     // set a simple cookie to mark the session (HttpOnly)
     res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
+    // Record activity: admin login (ActivityLog)
+    (async () => {
+      try {
+        const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record admin login activity', e); }
+    })();
     return res.json({ 
       ok: true, 
       user: { 
@@ -538,6 +555,14 @@ app.post('/api/admin/change-password', (req, res) => {
 
     // Update password
     adminPassword = newPassword;
+
+    // log change-password activity
+    (async () => {
+      try {
+        const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'change-password', details: 'Admin changed password' });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record change-password activity', e); }
+    })();
 
     return res.json({
       ok: true,
@@ -590,6 +615,12 @@ app.post('/api/admin/update-account', (req, res) => {
       }
       adminUsername = newUsername;
       console.log('[ADMIN] Username updated to:', newUsername);
+      (async () => {
+        try {
+          const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'update-account', details: `Updated username to ${newUsername}` });
+          try { sendSseEvent('activity', log); } catch (e) {}
+        } catch (e) { console.warn('Failed to record update-account activity', e); }
+      })();
     }
 
     return res.json({
@@ -703,6 +734,15 @@ app.post('/api/student/login', async (req, res) => {
     }
 
     // Return student data (without password)
+    // Record student login activity (fire-and-forget)
+    (async () => {
+      try {
+        const actorId = student.schoolId || String(student._id);
+        const log = await ActivityLog.create({ actor: actorId, action: 'login', details: `Student logged in (${actorId})`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record student login activity', e); }
+    })();
+
     return res.json({
       ok: true,
       student: {
@@ -724,6 +764,24 @@ app.post('/api/student/login', async (req, res) => {
   } catch (error) {
     console.error('Student login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Student logout endpoint (records activity)
+app.post('/api/student/logout', async (req, res) => {
+  try {
+    const { studentId } = req.body || {};
+    if (!studentId) return res.status(400).json({ error: 'studentId required' });
+    (async () => {
+      try {
+        const log = await ActivityLog.create({ actor: studentId, action: 'logout', details: `Student logged out (${studentId})`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record student logout activity', e); }
+    })();
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('student logout error', err);
+    return res.status(500).json({ error: 'failed' });
   }
 });
 
@@ -755,10 +813,16 @@ app.post('/api/student/change-password', async (req, res) => {
     student.passwordChanged = true;
     await student.save();
 
-    return res.json({
-      ok: true,
-      message: 'Password changed successfully'
-    });
+    // Record student password change activity
+    (async () => {
+      try {
+        const actorId = student.schoolId || String(student._id);
+        const log = await ActivityLog.create({ actor: actorId, action: 'change-password', details: `Student changed password (${actorId})`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record student change-password activity', e); }
+    })();
+
+    return res.json({ ok: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({ error: 'Failed to change password' });
@@ -783,6 +847,14 @@ app.post('/api/counselors', async (req, res) => {
     });
     await counselor.save();
     const { password: _, ...counselorData } = counselor.toObject();
+    // record activity: admin created a counselor
+    (async () => {
+      try {
+        const actor = DEFAULT_COUNSELOR.username || 'admin';
+        const log = await ActivityLog.create({ actor, action: 'create-counselor', details: `Created counselor ${counselor.email || counselor.username}`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record create-counselor activity', e); }
+    })();
     res.status(201).json(counselorData);
   } catch (error) {
     if (error.code === 11000) {
@@ -805,6 +877,19 @@ app.put('/api/counselors/:id', async (req, res) => {
       return res.status(404).json({ error: 'Counselor not found' });
     }
     res.json(counselor);
+    // record counselor profile update activity
+    (async () => {
+      try {
+        const name = `${counselor.firstName || ''} ${counselor.lastName || ''}`.trim() || counselor.email || 'Counselor';
+        const notif = await Notification.create({ type: 'system', status: 'sent', message: `Counselor profile updated: ${name}`, email: '' });
+        try { sendSseEvent('notification', notif); } catch (e) {}
+        // also record activity log for counselor update
+        try {
+          const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'update-counselor', details: `Updated counselor ${name}`, ip: req.ip });
+          try { sendSseEvent('activity', log); } catch (e) {}
+        } catch (e) { console.warn('Failed to record update-counselor activity', e); }
+      } catch (e) { console.warn('Failed to record counselor update notification', e); }
+    })();
   } catch (error) {
     res.status(500).json({ error: 'Failed to update counselor' });
   }
@@ -829,6 +914,13 @@ app.get('/api/admin/check', (req, res) => {
 app.post('/api/admin/logout', (req, res) => {
   // clear cookie
   res.setHeader('Set-Cookie', 'admin_auth=; Path=/; HttpOnly; Max-Age=0');
+  // record logout activity
+  (async () => {
+    try {
+      const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'logout', details: 'Admin logged out' });
+      try { sendSseEvent('activity', log); } catch (e) {}
+    } catch (e) { console.warn('Failed to record admin logout activity', e); }
+  })();
   res.json({ ok: true });
 });
 
@@ -1002,6 +1094,14 @@ app.post('/api/appointments/request', async (req, res) => {
       await appt.save();
       console.log('Appointment saved successfully:', { refNumber, status });
       sendSseEvent('appointment', appt);
+      // record activity: student requested appointment
+      (async () => {
+        try {
+          const actor = studentid || (appt.studentid) || (email || 'student');
+          const log = await ActivityLog.create({ actor, action: 'request-appointment', details: `Requested appointment ${refNumber} for ${date} ${time}`, ip: req.ip });
+          try { sendSseEvent('activity', log); } catch (e) {}
+        } catch (e) { console.warn('Failed to record request-appointment activity', e); }
+      })();
       
       // Send confirmation email to student
       try {
@@ -1135,6 +1235,14 @@ app.post('/api/appointments', async (req, res) => {
     const payload = { ...formattedData, refNumber: ref, createdAt: appt.createdAt, saved: true };
     // broadcast to SSE clients
     sendSseEvent('appointment', payload);
+    // record activity: admin created appointment
+    (async () => {
+      try {
+        const actor = DEFAULT_COUNSELOR.username || 'admin';
+        const log = await ActivityLog.create({ actor, action: 'create-appointment', details: `Created appointment ${ref} for ${formattedData.studentid || formattedData.fname}`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record create-appointment activity', e); }
+    })();
     // Broadcast to real-time WebSocket clients
     broadcastUpdate('appointment-created', { 
       refNumber: ref, 
@@ -1275,6 +1383,51 @@ app.put('/api/appointments/:ref', async (req, res) => {
 
     // broadcast update
     sendSseEvent('appointment:update', appt);
+    // record activity log(s) for appointment management (approve, reschedule, complete, assign counselor)
+    (async () => {
+      try {
+        // Determine actor: prefer admin cookie, fallback to provided actor or student id
+        const cookie = req.headers.cookie || '';
+        const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
+        const actor = isAdmin ? (DEFAULT_COUNSELOR.username || 'admin') : (body.actor || appt.studentid || appt.email || 'system');
+
+        const priorStatus = (prior && prior.status || '').toLowerCase();
+        const newStatus = (appt.status || '').toLowerCase();
+
+        // Log schedule changes (reschedule)
+        if (prior && (prior.date !== appt.date || prior.time !== appt.time)) {
+          await ActivityLog.create({ actor, action: 'reschedule-appointment', details: `Rescheduled ${appt.refNumber} from ${prior.date} ${prior.time} to ${appt.date} ${appt.time}`, ip: req.ip });
+        }
+
+        // Log status transitions
+        if (priorStatus !== newStatus) {
+          if (newStatus.includes('approved') || newStatus === 'booked') {
+            await ActivityLog.create({ actor, action: 'approve-appointment', details: `Approved appointment ${appt.refNumber}`, ip: req.ip });
+          } else if (newStatus === 'rescheduled') {
+            await ActivityLog.create({ actor, action: 'reschedule-appointment', details: `Rescheduled appointment ${appt.refNumber}`, ip: req.ip });
+          } else if (newStatus === 'completed') {
+            await ActivityLog.create({ actor, action: 'complete-appointment', details: `Marked appointment ${appt.refNumber} as completed`, ip: req.ip });
+          } else if (newStatus === 'cancelled' || newStatus === 'cancel') {
+            await ActivityLog.create({ actor, action: 'cancel-appointment', details: `Cancelled appointment ${appt.refNumber}`, ip: req.ip });
+          } else {
+            await ActivityLog.create({ actor, action: 'update-appointment-status', details: `Updated status for ${appt.refNumber} to ${appt.status}`, ip: req.ip });
+          }
+        }
+
+        // Log counselor assignment
+        if (body.counselor && prior && prior.counselor !== body.counselor) {
+          await ActivityLog.create({ actor, action: 'assign-counselor', details: `Assigned counselor ${body.counselor} to ${appt.refNumber}`, ip: req.ip });
+        }
+
+        // Emit a summary SSE event so admin UI can show activity in realtime
+        try {
+          const latest = await ActivityLog.find().sort({ createdAt: -1 }).limit(1).lean();
+          if (latest && latest[0]) sendSseEvent('activity', latest[0]);
+        } catch (e) { /* ignore SSE emission errors */ }
+      } catch (e) {
+        console.warn('Failed to record appointment activity logs', e);
+      }
+    })();
     // Broadcast to real-time WebSocket clients
     broadcastUpdate('appointment-updated', {
       refNumber: appt.refNumber,
@@ -1509,6 +1662,11 @@ app.put('/api/notifications/:id/read', async (req, res) => {
 app.delete('/api/notifications', async (req, res) => {
   try {
     await Notification.deleteMany({});
+    // record admin cleared notifications
+    try {
+      const notif = await Notification.create({ type: 'system', status: 'sent', message: 'Activity logs cleared by admin', email: '' });
+      try { sendSseEvent('notification', notif); } catch (e) {}
+    } catch (e) { console.warn('Failed to record clear notifications activity', e); }
     res.json({ ok: true });
   } catch (err) {
     console.error('Failed to clear notifications', err);
@@ -1602,6 +1760,14 @@ app.post('/api/counselor/current', async (req, res) => {
     if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
     ['title','firstName','middleName','lastName','email'].forEach(k => { if (body[k] !== undefined) counselor[k] = body[k]; });
     await counselor.save();
+    // record activity: counselor updated own profile
+    (async () => {
+      try {
+        const actor = DEFAULT_COUNSELOR.username || 'counselor';
+        const log = await ActivityLog.create({ actor, action: 'update-counselor-profile', details: `Updated counselor profile ${actor}`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record update-counselor-profile activity', e); }
+    })();
     return res.json({ counselor });
   } catch (err) {
     console.error('Error updating counselor:', err);
@@ -1640,6 +1806,14 @@ app.post('/api/referrals', async (req, res) => {
     await doc.save();
     // Broadcast simple SSE event if desired
     try { sendSseEvent('referral', doc); } catch(e){}
+    // record activity: student created referral
+    (async () => {
+      try {
+        const actor = doc.referrerStudentId || doc.referrerEmail || 'student';
+        const log = await ActivityLog.create({ actor, action: 'create-referral', details: `Created referral ${doc.refId} for ${doc.studentName}`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record create-referral activity', e); }
+    })();
 
     res.json({ ok: true, referral: doc });
   } catch (err) {
@@ -1687,9 +1861,58 @@ app.put('/api/referrals/:id', async (req, res) => {
     if(body.status !== undefined && ['Pending','Reviewed','Action Taken','Cancelled'].includes(body.status)) item.status = body.status;
 
     await item.save();
+    // record activity: counselor updated referral
+    (async () => {
+      try {
+        const actor = DEFAULT_COUNSELOR.username || 'counselor';
+        const log = await ActivityLog.create({ actor, action: 'update-referral', details: `Updated referral ${item.refId} status=${item.status}`, ip: req.ip });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to record update-referral activity', e); }
+    })();
+
     res.json({ ok: true, referral: item });
   } catch (err) {
     console.error('Failed to update referral', err);
     res.status(500).json({ error: 'internal' });
+  }
+});
+
+// ===== Activity Logs API =====
+// List recent activity logs
+app.get('/api/activity-logs', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) return res.json({ logs: [] });
+    const docs = await ActivityLog.find().sort({ createdAt: -1 }).limit(500).lean();
+    return res.json({ logs: docs });
+  } catch (err) {
+    console.error('Failed to fetch activity logs', err);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Delete a single activity log entry
+app.delete('/api/activity-logs/:id', async (req, res) => {
+  try {
+    await ActivityLog.findByIdAndDelete(req.params.id);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to delete activity log', err);
+    return res.status(500).json({ error: 'failed to delete' });
+  }
+});
+
+// Clear all activity logs (administrative)
+app.delete('/api/activity-logs', async (req, res) => {
+  try {
+    await ActivityLog.deleteMany({});
+    // Record that an admin cleared logs (store as ActivityLog for audit)
+    try {
+      const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'clear-activity-logs', details: 'Admin cleared all activity logs' });
+      try { sendSseEvent('activity', log); } catch (e) {}
+    } catch (e) { console.warn('Failed to create clear-activity-logs record', e); }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to clear activity logs', err);
+    return res.status(500).json({ error: 'failed' });
   }
 });

@@ -48,6 +48,7 @@
         <button data-view="referrals" class="nav-item"><span class="icon">🤝</span>Peer Referrals</button>
         <button data-view="reports" class="nav-item"><span class="icon">📈</span>Reports</button>
         <button data-view="settings" class="nav-item"><span class="icon">⚙️</span>Settings</button>
+        <button data-view="activity" class="nav-item"><span class="icon">📝</span>Activity Logs</button>
       </nav>
 
       <div class="nav-footer">
@@ -198,6 +199,7 @@
               </div>
             </div>
           </div>
+
         </div>
 
         <!-- ===== Appointments View ===== -->
@@ -774,6 +776,25 @@
               </ul>
             </div>
 
+          </div>
+        </div>
+
+        <!-- ===== Activity Logs View ===== -->
+        <div class="view hidden" id="view-activity" data-view="activity">
+          <div class="page-header">
+            <h2>Activity Logs</h2>
+            <div class="page-actions">
+              <button id="refreshActivityLogsBtn" class="btn">Refresh</button>
+              <button id="clearActivityLogsBtn" class="btn ghost">Clear All</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="table-wrap" style="padding:12px;">
+              <ul id="activityLogsList" style="list-style:none; margin:0; padding:0; max-height:560px; overflow:auto;">
+                <li style="color:#666; padding:12px;">Loading...</li>
+              </ul>
+            </div>
           </div>
         </div>
 
