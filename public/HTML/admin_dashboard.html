@@ -12,6 +12,8 @@
   <link href="../CSS/loader.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
   <!-- Page loader (shown while app initializes) -->
@@ -224,11 +226,11 @@
               <button class="tab" id="tabMissed" data-filter="missed">Missed Appointments <span class="pill red">0</span></button>
             </div>
             <div class="filters" style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-              <input type="date" id="rangeFrom" />
-              <input type="date" id="rangeTo" />
-              <select id="filterPriority"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select>
-              <select id="filterCounselor"><option>All Counselors</option></select>
-              <button class="btn ghost" id="resetFilters">Reset</button>
+              <div class="filter-item"><input type="text" id="rangeFrom" class="filter-input" placeholder="From (YYYY-MM-DD)" autocomplete="off" /></div>
+              <div class="filter-item"><input type="text" id="rangeTo" class="filter-input" placeholder="To (YYYY-MM-DD)" autocomplete="off" /></div>
+              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+              <div class="filter-item"><select id="filterCounselor" class="filter-select"><option>All Counselors</option></select></div>
+              <div class="filter-item"><button class="btn ghost filter-reset" id="resetFilters">Reset</button></div>
             </div>
           </div>
 
@@ -1013,6 +1015,26 @@
     <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #e5e7eb; padding-top:1rem;">
       <button id="rescheduleConfirmBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#f59e0b; color:#fff; font-weight:600; border:none;">⟳ Reschedule</button>
       <button id="rescheduleCancelBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; border:2px solid #e5e7eb; background:#fff; color:#0a2342; font-weight:600;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complete Appointment Modal -->
+<div id="completeModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000;">
+  <div class="modal-content" style="width:100%; max-width:420px; background:#fff; border-radius:12px; padding:1.5rem; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div class="modal-header" style="margin-bottom:1rem; border-bottom:2px solid #e5e7eb; padding-bottom:0.5rem;">
+      <h3 style="margin:0; font-size:1.15rem; color:#1f2937;">Confirm Completion</h3>
+    </div>
+    <div class="modal-body" style="margin-bottom:1rem;">
+      <p id="completeMessage" style="color:#6b7280; font-size:0.95rem; margin:0;">Are you sure you want to mark this appointment as completed?</p>
+      <div id="completeDetails" style="margin-top:0.75rem; padding:0.75rem; background:#f9fafb; border-radius:8px; border-left:4px solid #10b981;">
+        <p id="completeStudentInfo" style="margin:0 0 0.25rem 0; color:#0a2342; font-weight:600;"></p>
+        <p id="completeDateInfo" style="margin:0; color:#6b7280; font-size:0.9rem;"></p>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #eef2f7; padding-top:0.75rem;">
+      <button id="completeConfirmBtn" class="btn" style="flex:1; padding:0.6rem; border-radius:8px; cursor:pointer; background:#10b981; color:#fff; font-weight:600; border:none;">✓ Mark Completed</button>
+      <button id="completeCancelBtn" class="btn" style="flex:1; padding:0.6rem; border-radius:8px; cursor:pointer; border:2px solid #e5e7eb; background:#fff; color:#0a2342; font-weight:600;">Cancel</button>
     </div>
   </div>
 </div>
