@@ -82,14 +82,14 @@ if(adminLoginBtn){
       const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }), credentials: 'include' });
       if(!res.ok){
         const e = await res.json().catch(()=>({}));
-        alert(e.error || 'Login failed');
+        showActionModal(e.error || 'Login failed', { type: 'error' });
         return;
       }
       // success — redirect to admin dashboard
       window.location.href = '/HTML/admin_dashboard.html';
     }catch(err){
       console.error('Admin login error', err);
-      alert('Login failed');
+      showActionModal('Login failed', { type: 'error' });
     }
   });
 }
@@ -102,7 +102,7 @@ if(studentLoginBtn) {
     const password = document.getElementById('studentPassword').value?.trim();
 
     if (!schoolId || !password) {
-      alert('Please enter both School ID and Password');
+      showActionModal('Please enter both School ID and Password', { type: 'error' });
       return;
     }
 
@@ -116,7 +116,7 @@ if(studentLoginBtn) {
 
       if (!res.ok) {
         const error = await res.json();
-        alert(error.error || 'Login failed');
+        showActionModal(error.error || 'Login failed', { type: 'error' });
         return;
       }
 
@@ -153,7 +153,7 @@ if(studentLoginBtn) {
       }
     } catch(err) {
       console.error('Student login error:', err);
-      alert('Login failed. Please try again.');
+      showActionModal('Login failed. Please try again.', { type: 'error' });
     }
   });
 }

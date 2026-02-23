@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Counselor = require('./models/counselors');
 const Student = require('./models/students');
 const Referral = require('./models/referrals');
+const Setting = require('./models/settings');
 const sgMail = require('@sendgrid/mail');
 const socketIO = require('socket.io');
 
@@ -506,6 +507,81 @@ function broadcastUpdate(event, data) {
   io.emit(event, data);
 }
 
+// Server-side threshold evaluation state
+let lastThresholdLevel = 0; // 0 = none, 1 = session, 2 = warning, 3 = critical
+
+async function getPersistedThresholds() {
+  try {
+    const doc = await Setting.findOne({ key: 'thresholds' }).lean();
+    if (doc && doc.value) return doc.value;
+  } catch (e) {
+    console.warn('Failed to read persisted thresholds', e);
+  }
+  return { sessionThreshold: 5, warningThreshold: 10, criticalThreshold: 15 };
+}
+
+// Evaluate today's appointment count against thresholds and broadcast when level changes
+async function evaluateThresholds() {
+  try {
+    const thresholds = await getPersistedThresholds();
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const countToday = await Appointment.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } });
+
+    let level = 0;
+    if (countToday >= (thresholds.criticalThreshold || 999999)) level = 3;
+    else if (countToday >= (thresholds.warningThreshold || 999999)) level = 2;
+    else if (countToday >= (thresholds.sessionThreshold || 999999)) level = 1;
+
+    // Only broadcast when level changes (prevents repeated notifications)
+    if (level !== lastThresholdLevel) {
+      lastThresholdLevel = level;
+      const payload = { level, countToday, thresholds, timestamp: new Date() };
+
+      // Create an activity log
+      try {
+        const desc = level === 0 ? `Thresholds back to normal (${countToday})` : `Threshold ${level} reached: ${countToday} today`;
+        const log = await ActivityLog.create({ actor: 'system', action: 'threshold-eval', details: desc });
+        try { sendSseEvent('activity', log); } catch (e) {}
+      } catch (e) { console.warn('Failed to write threshold activity log', e); }
+
+      // Send SSE and socket.io broadcasts
+      try { sendSseEvent('threshold', payload); } catch (e) { /* ignore */ }
+      try { broadcastUpdate('threshold', payload); } catch (e) { /* ignore */ }
+    }
+
+    return { level, countToday, thresholds };
+  } catch (e) {
+    console.error('evaluateThresholds failed', e);
+    return null;
+  }
+}
+
+// Admin endpoint to trigger/check thresholds immediately
+app.get('/api/admin/thresholds/check', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    if (!isAdmin) return res.status(401).json({ error: 'Not authenticated' });
+
+    const result = await evaluateThresholds();
+    if (!result) return res.status(500).json({ error: 'evaluation failed' });
+    return res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error('threshold check endpoint error', e);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+// Kick off periodic threshold evaluation every 60 seconds
+setInterval(() => {
+  try { evaluateThresholds(); } catch (e) { console.warn('Periodic threshold eval failed', e); }
+}, 60 * 1000);
+
 // Simple admin auth (development-only)
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
@@ -911,6 +987,48 @@ app.get('/api/admin/check', (req, res) => {
   return res.status(401).json({ ok: false });
 });
 
+// Admin: get thresholds (persistent)
+app.get('/api/admin/thresholds', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
+    if(!isAdmin) return res.status(401).json({ error: 'Not authenticated' });
+
+    const doc = await Setting.findOne({ key: 'thresholds' }).lean();
+    if (!doc) {
+      // return defaults matching client defaults
+      return res.json({ thresholds: { sessionThreshold: 5, warningThreshold: 10, criticalThreshold: 15 } });
+    }
+    return res.json({ thresholds: doc.value });
+  } catch (e) {
+    console.error('Failed to get thresholds', e);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+// Admin: save thresholds
+app.post('/api/admin/thresholds', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
+    if(!isAdmin) return res.status(401).json({ error: 'Not authenticated' });
+
+    const { sessionThreshold, warningThreshold, criticalThreshold } = req.body || {};
+    if (!sessionThreshold || !warningThreshold || !criticalThreshold) return res.status(400).json({ error: 'missing values' });
+
+    const value = { sessionThreshold: parseInt(sessionThreshold,10), warningThreshold: parseInt(warningThreshold,10), criticalThreshold: parseInt(criticalThreshold,10) };
+    const updated = await Setting.findOneAndUpdate({ key: 'thresholds' }, { value, updatedAt: new Date() }, { upsert: true, new: true });
+
+    // Broadcast update to admin clients if socket exists
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('thresholds-updated', value); } catch(e){}
+
+    res.json({ ok: true, thresholds: updated.value });
+  } catch (e) {
+    console.error('Failed to save thresholds', e);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
 app.post('/api/admin/logout', (req, res) => {
   // clear cookie
   res.setHeader('Set-Cookie', 'admin_auth=; Path=/; HttpOnly; Max-Age=0');
@@ -1208,14 +1326,39 @@ app.post('/api/appointments', async (req, res) => {
       return res.json({ ok: true, refNumber: ref, saved: false });
     }
 
-    // Duplication check: prevent double-booking same date+time
-    if(formattedData.date && formattedData.time){
+    // Duplication/conflict check: prevent creating appointment in an already-approved/booked slot
+    if (formattedData.date && formattedData.time) {
+      // Normalize a possible HH:MM -> h:mm AM/PM for checking ApprovedSchedule
+      function to12hr(t) {
+        try {
+          if (!t) return t;
+          const m = String(t).trim().match(/^(\d{1,2}):(\d{2})$/);
+          if (!m) return String(t).trim();
+          let h = parseInt(m[1], 10);
+          const mm = m[2];
+          const ap = h >= 12 ? 'PM' : 'AM';
+          if (h === 0) h = 12;
+          if (h > 12) h = h - 12;
+          return `${h}:${mm} ${ap}`;
+        } catch (e) { return String(t).trim(); }
+      }
+
+      const time12 = to12hr(formattedData.time);
+
+      // Check ApprovedSchedule for pre-existing approved slot
+      const schedConflict = await ApprovedSchedule.findOne({ date: formattedData.date, time: { $in: [formattedData.time, time12] } }).lean();
+      if (schedConflict) {
+        return res.status(409).json({ error: 'Time slot already booked (approved schedule)', existingRef: null });
+      }
+
+      // Check other appointments that are already approved/booked (case variations)
+      const approvedStatuses = ['Approved','approved','rescheduled/approved','Rescheduled/Approved','Booked','booked'];
       const existing = await Appointment.findOne({ 
         date: formattedData.date, 
-        time: formattedData.time, 
-        status: 'booked' 
+        time: { $in: [formattedData.time, time12] },
+        status: { $in: approvedStatuses }
       }).lean();
-      if(existing){
+      if (existing) {
         return res.status(409).json({ error: 'Time slot already booked', existingRef: existing.refNumber });
       }
     }
@@ -1283,6 +1426,8 @@ app.put('/api/appointments/:ref', async (req, res) => {
 
     console.log('Update data:', update);
 
+    
+
     // Try to find by refNumber first, then by _id
     let prior = await Appointment.findOne({ refNumber: ref }).lean();
     let queryFilter = { refNumber: ref };
@@ -1298,6 +1443,30 @@ app.put('/api/appointments/:ref', async (req, res) => {
     }
     
     console.log('Prior appointment state:', prior);
+
+    // PRE-CHECK: Prevent approving/rescheduling into an already-booked slot
+    try {
+      const targetStatus = (update.status || (prior && prior.status) || '').toString();
+      const targetStatusLower = targetStatus.toLowerCase();
+      const targetDate = update.date || (prior && prior.date) || null;
+      const targetTime = update.time || (prior && prior.time) || null;
+      const willBeApproved = ['approved', 'rescheduled/approved', 'booked'].includes(targetStatusLower);
+
+      if (willBeApproved && targetDate && targetTime) {
+        const conflict = await Appointment.findOne({
+          date: targetDate,
+          time: targetTime,
+          status: { $in: ['Approved', 'rescheduled/approved', 'Booked'] },
+          $or: [ { refNumber: { $ne: ref } }, { _id: { $ne: prior && prior._id } } ]
+        }).lean();
+        if (conflict) {
+          console.warn('Conflict detected when approving/rescheduling:', { conflictRef: conflict.refNumber, targetDate, targetTime });
+          return res.status(409).json({ error: 'Time slot already booked', existingRef: conflict.refNumber });
+        }
+      }
+    } catch (e) {
+      console.warn('Pre-check for appointment conflict failed:', e);
+    }
     
     const appt = await Appointment.findOneAndUpdate(queryFilter, { $set: update }, { new: true }).lean();
     if(!appt) return res.status(404).json({ error: 'not found' });
