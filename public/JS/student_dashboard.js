@@ -65,20 +65,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const appointmentsList = document.querySelector('.appointments-list');
   const logoutBtn = document.getElementById('logoutBtn');
   // --- Logout confirmation modal (copied from admin_dashboard.js) ---
-  function showConfirmDialog(title, message) {
+  function showConfirmDialog(title, message, opts = {}) {
+    const confirmText = opts.confirmText || 'Yes, Logout';
+    const cancelText = opts.cancelText || 'Stay Signed In';
+    const submessage = opts.submessage || 'You will be redirected to the login page';
+    const icon = typeof opts.icon !== 'undefined' ? opts.icon : '🔒';
+    const align = opts.alignButtons || 'end'; // 'end' | 'center' | 'start'
     return new Promise((resolve) => {
       const modal = document.createElement('div');
       modal.className = 'modal logout-confirm';
+      const footerClass = align === 'center' ? 'modal-footer center' : (align === 'start' ? 'modal-footer start' : 'modal-footer');
       modal.innerHTML = `
-        <div class="modal-content" style="max-width: 400px">
+        <div class="modal-content" style="max-width: 420px">
           <div class="modal-body">
-            <span class="modal-icon">🔒</span>
+            ${icon ? `<span class="modal-icon">${icon}</span>` : ''}
             <h3 class="modal-message">${message}</h3>
-            <p class="modal-submessage">You will be redirected to the login page</p>
+            <p class="modal-submessage">${submessage}</p>
           </div>
-          <div class="modal-footer">
-            <button class="button button-secondary" id="cancelBtn">Stay Signed In</button>
-            <button class="button button-primary" id="confirmBtn">Yes, Logout</button>
+          <div class="${footerClass}">
+            <button class="button button-secondary" id="cancelBtn">${cancelText}</button>
+            <button class="button button-primary" id="confirmBtn">${confirmText}</button>
           </div>
         </div>
       `;
@@ -166,11 +172,11 @@ document.addEventListener('DOMContentLoaded', () => {
     modalToStep2.addEventListener('click', () => {
       const urgency = document.querySelector('input[name="modalUrgency"]:checked')?.value;
       if (!urgency) {
-        alert('Please select an urgency level');
+        showToast('Please select an urgency level', 'error');
         return;
       }
       if (!modalReason.value.trim()) {
-        alert('Please describe your concern');
+        showToast('Please describe your concern', 'error');
         return;
       }
       showModalStep(2);
@@ -196,11 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (modalToStep4) {
     modalToStep4.addEventListener('click', () => {
       if (!modalApptDate.value) {
-        alert('Please select a date');
+        showToast('Please select a date', 'error');
         return;
       }
       if (!modalApptTime.value) {
-        alert('Please select a time slot');
+        showToast('Please select a time slot', 'error');
         return;
       }
       // Populate confirmation step
@@ -270,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (modalSubmitBtn) {
     modalSubmitBtn.addEventListener('click', async () => {
       if (!modalAgree.checked) {
-        alert('Please agree to the terms and conditions');
+        showToast('Please agree to the terms and conditions', 'error');
         return;
       }
       
@@ -302,17 +308,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!response.ok) {
           const error = await response.json();
-          alert(error.error || 'Failed to submit appointment');
+          showToast(error.error || 'Failed to submit appointment', 'error');
           return;
         }
-        
+
         const result = await response.json();
-        alert('Appointment submitted successfully! Reference: ' + result.refNumber);
+        showToast('Appointment submitted — Ref: ' + result.refNumber, 'success');
         apptModal.style.display = 'none';
         renderAppointments(studentData.studentId, studentData.email);
       } catch (error) {
         console.error('Error submitting appointment:', error);
-        alert('Error submitting appointment');
+        showToast('Error submitting appointment', 'error');
       }
     });
   }
@@ -335,6 +341,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const parsed = JSON.parse(studentData);
     console.log('DEBUG: checkAuth() returning:', parsed);
     return parsed;
+  }
+
+  // Simple toast helper
+  function showToast(message, type = 'info', timeout = 3500) {
+    try {
+      let container = document.getElementById('globalToastContainer');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'globalToastContainer';
+        container.style.position = 'fixed';
+        container.style.right = '20px';
+        container.style.bottom = '20px';
+        container.style.zIndex = '99999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '8px';
+        document.body.appendChild(container);
+      }
+
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + (type || 'info');
+      toast.textContent = message;
+      toast.style.minWidth = '200px';
+      toast.style.padding = '10px 14px';
+      toast.style.borderRadius = '8px';
+      toast.style.boxShadow = '0 8px 24px rgba(2,6,23,0.12)';
+      toast.style.color = '#fff';
+      toast.style.fontWeight = '600';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
+      toast.style.transition = 'opacity 220ms ease, transform 220ms ease';
+
+      // color by type
+      if (type === 'success') toast.style.background = '#16a34a';
+      else if (type === 'error') toast.style.background = '#dc2626';
+      else if (type === 'warning') toast.style.background = '#f59e0b';
+      else toast.style.background = '#0f172a';
+
+      container.appendChild(toast);
+      // animate in
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+
+      const t = setTimeout(() => {
+        // animate out
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => { try { container.removeChild(toast); } catch (e) {} }, 220);
+      }, timeout);
+
+      // allow click to dismiss
+      toast.addEventListener('click', () => {
+        clearTimeout(t);
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => { try { container.removeChild(toast); } catch (e) {} }, 180);
+      });
+    } catch (e) {
+      console.warn('showToast failed', e);
+    }
   }
 
   function updateUserInfo(data) {
@@ -431,6 +499,9 @@ document.addEventListener('DOMContentLoaded', () => {
     appointmentsList.innerHTML = sortedAppointments.map(apt => {
       const displayStatus = formatStatus(apt.status);
       const statusClass = getStatusClass(apt.status);
+      // Show cancel button only when status is pending (case-insensitive)
+      const isPending = !(apt.status) || String(apt.status).toLowerCase() === 'pending';
+      const cancelBtnHtml = isPending ? `<button class="btn btn-danger btn-cancel" data-ref="${apt.refNumber}">Cancel</button>` : '';
       return `
         <div class="appointment-card">
           <div class="appointment-header">
@@ -446,18 +517,45 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="appointment-reason">
             ${apt.reason}
           </div>
+          <div class="appointment-actions" style="margin-top:8px; text-align:right;">
+            ${cancelBtnHtml}
+          </div>
         </div>
       `;
     }).join('');
+    
+    // Attach event listeners for cancel buttons
+    appointmentsList.querySelectorAll('.btn-cancel').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const ref = btn.getAttribute('data-ref');
+        if (!ref) return;
+        // Confirm using existing confirm dialog helper (custom labels)
+          const confirmed = await showConfirmDialog('Cancel Appointment', 'Are you sure you want to cancel this appointment?', { confirmText: 'Yes, Cancel', cancelText: 'Keep Appointment', submessage: 'This will cancel your pending appointment.', icon: '⚠️', alignButtons: 'center', align: 'center' });
+        if (!confirmed) return;
+        try {
+          const res = await fetch(`/api/appointments/${encodeURIComponent(ref)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Cancelled', actor: (studentData && studentData.studentId) ? studentData.studentId : undefined })
+          });
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            showToast(j.error || 'Failed to cancel appointment', 'error');
+            return;
+          }
+          const j = await res.json();
+          showToast('Appointment cancelled', 'success');
+          // Refresh the list
+          renderAppointments((studentData && studentData.studentId) ? studentData.studentId : (studentData && studentData.studentid), (studentData && studentData.email));
+        } catch (err) {
+          console.error('Cancel failed', err);
+          showToast('Error cancelling appointment', 'error');
+        }
+      });
+    });
   }
 
-  async function handleLogout() {
-    const confirmLogout = await showConfirmDialog('Confirm Logout', 'Are you sure you want to logout?');
-    if (confirmLogout) {
-      sessionStorage.removeItem('studentData');
-      window.location.href = 'landing.html';
-    }
-  }
+  
 
   // SETTINGS SECTION FUNCTIONALITY
   function setupSettings(studentData) {
@@ -745,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Basic validation
       if(!payload.referrerName || !payload.referrerStudentId || !payload.referrerEmail || !payload.studentName || !payload.studentId || !payload.description || !modal.querySelector('#r_course').value || !modal.querySelector('#r_year').value){
-        alert('Please complete required fields');
+        showToast('Please complete required fields', 'error');
         return;
       }
 
@@ -753,13 +851,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/referrals', {
           method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
         });
-        if(!res.ok){ const j = await res.json().catch(()=>({})); alert('Failed to submit referral: '+(j.error||res.statusText)); return; }
+        if(!res.ok){ const j = await res.json().catch(()=>({})); showToast('Failed to submit referral: '+(j.error||res.statusText), 'error'); return; }
         const j = await res.json();
-        alert('Referral submitted — thank you.');
+        showToast('Referral submitted — thank you.', 'success');
         modal.style.display = 'none';
         // refresh list
         renderMyReferrals(payload.referrerStudentId);
-      }catch(err){ console.error('Submit referral failed', err); alert('Error submitting referral'); }
+      }catch(err){ console.error('Submit referral failed', err); showToast('Error submitting referral', 'error'); }
     }, { once: true });
   }
 
