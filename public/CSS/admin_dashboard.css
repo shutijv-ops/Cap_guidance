@@ -397,6 +397,8 @@ body::before {
   margin-top: 0;
 }
 
+/* Activity logs removed: related styles deleted */
+
 /* Sidebar menu items */
 .nav-item {
   display: flex;

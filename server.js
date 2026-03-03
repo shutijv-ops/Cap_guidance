@@ -2253,42 +2253,5 @@ app.put('/api/referrals/:id', async (req, res) => {
   }
 });
 
-// ===== Activity Logs API =====
-// List recent activity logs
-app.get('/api/activity-logs', async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) return res.json({ logs: [] });
-    const docs = await ActivityLog.find().sort({ createdAt: -1 }).limit(500).lean();
-    return res.json({ logs: docs });
-  } catch (err) {
-    console.error('Failed to fetch activity logs', err);
-    return res.status(500).json({ error: 'internal' });
-  }
-});
-
-// Delete a single activity log entry
-app.delete('/api/activity-logs/:id', async (req, res) => {
-  try {
-    await ActivityLog.findByIdAndDelete(req.params.id);
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error('Failed to delete activity log', err);
-    return res.status(500).json({ error: 'failed to delete' });
-  }
-});
-
-// Clear all activity logs (administrative)
-app.delete('/api/activity-logs', async (req, res) => {
-  try {
-    await ActivityLog.deleteMany({});
-    // Record that an admin cleared logs (store as ActivityLog for audit)
-    try {
-      const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'clear-activity-logs', details: 'Admin cleared all activity logs' });
-      try { sendSseEvent('activity', log); } catch (e) {}
-    } catch (e) { console.warn('Failed to create clear-activity-logs record', e); }
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error('Failed to clear activity logs', err);
-    return res.status(500).json({ error: 'failed' });
-  }
-});
+// Activity Logs API removed: feature disabled. Activity recording still occurs server-side but
+// the HTTP endpoints to list/clear activity logs have been disabled.
