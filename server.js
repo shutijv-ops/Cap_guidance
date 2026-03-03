@@ -6,6 +6,8 @@ const Counselor = require('./models/counselors');
 const Student = require('./models/students');
 const Referral = require('./models/referrals');
 const Setting = require('./models/settings');
+const Admin = require('./models/admins');
+const bcrypt = require('bcryptjs');
 const sgMail = require('@sendgrid/mail');
 const socketIO = require('socket.io');
 
@@ -221,6 +223,46 @@ mongoose.connect(MONGODB_URI, {
   useUnifiedTopology: true
 }).then(async () => {
   console.log('Connected to MongoDB');
+  // Attempt to load persisted admin from DB (if exists)
+    try {
+      const existing = await Admin.findOne({}).exec();
+      if (existing) {
+        adminUsername = existing.username || adminUsername;
+        adminEmail = existing.email || adminEmail;
+        adminFirstName = existing.firstName || adminFirstName;
+        adminMiddleName = existing.middleName || adminMiddleName;
+        adminLastName = existing.lastName || adminLastName;
+        // Migrate plaintext password to bcrypt hash if necessary
+        if (existing.password) {
+          const isHashed = existing.password.startsWith('$2');
+          if (!isHashed) {
+            const hashed = await bcrypt.hash(existing.password, 10);
+            existing.password = hashed;
+            await existing.save();
+            adminPassword = hashed;
+            console.log('[ADMIN] Migrated plaintext admin password to bcrypt hash');
+          } else {
+            adminPassword = existing.password;
+          }
+        }
+        console.log('[ADMIN] Loaded admin from DB:', adminUsername);
+      }
+    } catch (e) {
+      console.warn('[ADMIN] Failed to load admin from DB on startup', e);
+    }
+
+    // Remove any counselor documents that appear to be the admin (avoid admin data in counselors collection)
+    try {
+      const removeFilter = {};
+      if (adminUsername) removeFilter.username = adminUsername;
+      if (adminEmail) removeFilter.email = adminEmail;
+      if (Object.keys(removeFilter).length > 0) {
+        const delRes = await Counselor.deleteMany({ $or: [ ...(removeFilter.username ? [{ username: removeFilter.username }] : []), ...(removeFilter.email ? [{ email: removeFilter.email }] : []) ] });
+        if (delRes && delRes.deletedCount) console.log('[ADMIN] Removed admin-like documents from counselors collection:', delRes.deletedCount);
+      }
+    } catch (e) {
+      console.warn('[ADMIN] Failed to clean counselors collection', e);
+    }
   
   // Add test approved schedules if they don't exist
   try {
@@ -272,6 +314,20 @@ app.get(['/HTML/admin_dashboard.html', '/public/HTML/admin_dashboard.html'], (re
 
 // Serve other static files
 app.use(express.static('public'));
+
+// Helper to verify admin password (supports bcrypt hashes)
+async function verifyAdminPassword(inputPassword) {
+  if (!adminPassword) return false;
+  try {
+    if (typeof adminPassword === 'string' && adminPassword.startsWith('$2')) {
+      return await bcrypt.compare(inputPassword, adminPassword);
+    }
+    return inputPassword === adminPassword;
+  } catch (e) {
+    console.error('[ADMIN] verifyAdminPassword error', e);
+    return false;
+  }
+}
 
 // Get available time slots for a specific date
 app.get('/api/schedules/:date', async (req, res) => {
@@ -332,6 +388,33 @@ const DEFAULT_COUNSELOR = {
 
 // In-memory storage for admin password (persists during session)
 let adminPassword = DEFAULT_COUNSELOR.password;
+// In-memory admin account fields (name split and email)
+let adminUsername = DEFAULT_COUNSELOR.username;
+let adminEmail = '';
+let adminFirstName = '';
+let adminMiddleName = '';
+let adminLastName = '';
+
+// Parse DEFAULT_COUNSELOR.name into components (simple heuristic)
+(function parseDefaultName() {
+  try {
+    const parts = DEFAULT_COUNSELOR.name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return;
+    // remove title if it ends with a dot or matches common titles
+    const titles = ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Miss', 'Mr', 'Mrs', 'Ms', 'Dr'];
+    if (titles.includes(parts[0])) parts.shift();
+    if (parts.length === 1) {
+      adminFirstName = parts[0];
+      return;
+    }
+    // last token is last name
+    adminLastName = parts[parts.length - 1];
+    // first token is first name
+    adminFirstName = parts[0];
+    // middle is anything in between
+    if (parts.length > 2) adminMiddleName = parts.slice(1, parts.length - 1).join(' ');
+  } catch (e) { /* ignore */ }
+})();
 
 // Basic middleware
 app.use(express.json());
@@ -583,33 +666,55 @@ setInterval(() => {
 }, 60 * 1000);
 
 // Simple admin auth (development-only)
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body || {};
-  if(!username || !password) return res.status(400).json({ error: 'missing credentials' });
-  if(username.trim().toLowerCase() === DEFAULT_COUNSELOR.username && password === adminPassword){
-    // set a simple cookie to mark the session (HttpOnly)
-    res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
-    // Record activity: admin login (ActivityLog)
-    (async () => {
-      try {
-        const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` });
-        try { sendSseEvent('activity', log); } catch (e) {}
-      } catch (e) { console.warn('Failed to record admin login activity', e); }
-    })();
-    return res.json({ 
-      ok: true, 
-      user: { 
-        username: DEFAULT_COUNSELOR.username,
-        name: DEFAULT_COUNSELOR.name,
-        role: DEFAULT_COUNSELOR.role
-      } 
-    });
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if(!username || !password) return res.status(400).json({ error: 'missing credentials' });
+
+    // Try to find admin record in DB first
+    try {
+      const adminDoc = await Admin.findOne({ username: username.trim() }).exec();
+      if (adminDoc) {
+        const pwMatch = await bcrypt.compare(password, adminDoc.password).catch(()=>false);
+        console.log('[ADMIN DEBUG] login attempt for', username.trim(), 'found DB admin, pwMatch:', pwMatch);
+        if (pwMatch) {
+          res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
+          (async () => {
+            try {
+              const log = await ActivityLog.create({ actor: adminDoc.username, action: 'login', details: `Admin logged in` });
+              try { sendSseEvent('activity', log); } catch (e) {}
+            } catch (e) { console.warn('Failed to record admin login activity', e); }
+          })();
+          return res.json({ ok: true, user: { username: adminDoc.username, name: `${adminDoc.firstName || ''}${adminDoc.middleName ? ' ' + adminDoc.middleName : ''}${adminDoc.lastName ? ' ' + adminDoc.lastName : ''}`.trim(), role: adminDoc.role || DEFAULT_COUNSELOR.role } });
+        }
+      }
+    } catch (e) {
+      console.warn('[ADMIN DEBUG] error querying Admin collection', e);
+    }
+
+    // Fallback: in-memory check for legacy/default admin
+    const allowedUsername = (adminUsername || DEFAULT_COUNSELOR.username).toLowerCase();
+    if(username.trim().toLowerCase() === allowedUsername && password === adminPassword){
+      res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
+      (async () => {
+        try {
+          const log = await ActivityLog.create({ actor: adminUsername || DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` });
+          try { sendSseEvent('activity', log); } catch (e) {}
+        } catch (e) { console.warn('Failed to record admin login activity', e); }
+      })();
+      const computedName = (adminFirstName || adminLastName) ? `${adminFirstName || ''}${adminMiddleName ? ' ' + adminMiddleName : ''}${adminLastName ? ' ' + adminLastName : ''}`.trim() : DEFAULT_COUNSELOR.name;
+      return res.json({ ok: true, user: { username: adminUsername || DEFAULT_COUNSELOR.username, name: computedName, role: DEFAULT_COUNSELOR.role } });
+    }
+
+    return res.status(401).json({ error: 'invalid credentials' });
+  } catch (err) {
+    console.error('admin login error:', err);
+    return res.status(500).json({ error: 'server error' });
   }
-  return res.status(401).json({ error: 'invalid credentials' });
 });
 
 // Admin change password endpoint
-app.post('/api/admin/change-password', (req, res) => {
+app.post('/api/admin/change-password', async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
@@ -620,12 +725,15 @@ app.post('/api/admin/change-password', (req, res) => {
     // Verify admin is authenticated
     const cookie = req.headers.cookie || '';
     const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    console.log('[ADMIN DEBUG] update-account cookie present:', !!cookie, 'isAdmin:', isAdmin);
     if (!isAdmin) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    // Verify old password
-    if (oldPassword !== adminPassword) {
+    // Verify old password using bcrypt-aware helper
+    const okOld = await verifyAdminPassword(oldPassword);
+    if (!okOld) {
+      console.log('[ADMIN DEBUG] password mismatch for change-password');
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
@@ -640,6 +748,15 @@ app.post('/api/admin/change-password', (req, res) => {
       } catch (e) { console.warn('Failed to record change-password activity', e); }
     })();
 
+    // Persist password change to Admin collection as well
+    try {
+      const filter = { username: adminUsername || DEFAULT_COUNSELOR.username };
+      await Admin.findOneAndUpdate(filter, { password: adminPassword, username: adminUsername || DEFAULT_COUNSELOR.username }, { upsert: true, new: true, setDefaultsOnInsert: true });
+      console.log('[ADMIN] Persisted password change to DB for', filter.username);
+    } catch (e) {
+      console.warn('[ADMIN] Failed to persist password change to DB', e);
+    }
+
     return res.json({
       ok: true,
       message: 'Password changed successfully'
@@ -651,28 +768,24 @@ app.post('/api/admin/change-password', (req, res) => {
 });
 
 // Update admin account (password and/or username)
-app.post('/api/admin/update-account', (req, res) => {
+app.post('/api/admin/update-account', async (req, res) => {
   try {
-    const { oldPassword, newPassword, newUsername } = req.body;
+    const { oldPassword, newPassword, newUsername, newFirstName, newMiddleName, newLastName, newEmail } = req.body;
 
     if (!oldPassword) {
       return res.status(400).json({ error: 'Current password is required' });
     }
 
-    if (!newPassword && !newUsername) {
-      return res.status(400).json({ error: 'Please provide new password or username' });
+    if (!newPassword && !newUsername && !newFirstName && !newEmail && !newMiddleName && !newLastName) {
+      return res.status(400).json({ error: 'Please provide at least one field to update' });
     }
 
-    // Verify admin is authenticated
+    // Verify admin by cookie OR by providing correct current password
     const cookie = req.headers.cookie || '';
     const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
-    if (!isAdmin) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    // Verify old password
-    if (oldPassword !== adminPassword) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+    const okOldPwd = await verifyAdminPassword(oldPassword);
+    if (!isAdmin && !okOldPwd) {
+      return res.status(401).json({ error: 'Not authenticated or current password is incorrect' });
     }
 
     // Update password if provided
@@ -680,8 +793,9 @@ app.post('/api/admin/update-account', (req, res) => {
       if (newPassword.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
-      adminPassword = newPassword;
-      console.log('[ADMIN] Password updated');
+      const hashed = await bcrypt.hash(newPassword, 10);
+      adminPassword = hashed;
+      console.log('[ADMIN] Password updated (hashed)');
     }
 
     // Update username if provided
@@ -697,6 +811,47 @@ app.post('/api/admin/update-account', (req, res) => {
           try { sendSseEvent('activity', log); } catch (e) {}
         } catch (e) { console.warn('Failed to record update-account activity', e); }
       })();
+    }
+
+    // Capture previous username for DB lookup
+    const prevUsernameForDb = adminUsername || DEFAULT_COUNSELOR.username;
+
+    // Update name/email fields if provided
+    let nameChanged = false;
+    if (newFirstName) { adminFirstName = newFirstName; nameChanged = true; }
+    if (newMiddleName !== undefined) { adminMiddleName = newMiddleName || ''; nameChanged = true; }
+    if (newLastName) { adminLastName = newLastName; nameChanged = true; }
+    if (newEmail !== undefined) { adminEmail = newEmail || ''; }
+
+    if (nameChanged) {
+      (async () => {
+        try {
+          const name = `${adminFirstName} ${adminMiddleName ? adminMiddleName + ' ' : ''}${adminLastName}`.trim();
+          const log = await ActivityLog.create({ actor: DEFAULT_COUNSELOR.username, action: 'update-account', details: `Updated admin name to ${name}` });
+          try { sendSseEvent('activity', log); } catch (e) {}
+        } catch (e) { console.warn('Failed to record update-account activity', e); }
+      })();
+    }
+
+    // Persist admin changes to DB (create or update)
+    try {
+      await Admin.findOneAndUpdate(
+        { username: prevUsernameForDb },
+        {
+          username: adminUsername || prevUsernameForDb,
+          password: adminPassword,
+          firstName: adminFirstName,
+          middleName: adminMiddleName,
+          lastName: adminLastName,
+          email: adminEmail,
+          role: 'Administrator',
+          updatedAt: new Date()
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      console.log('[ADMIN] Persisted admin changes to DB');
+    } catch (e) {
+      console.warn('[ADMIN] Failed to persist admin changes to DB', e);
     }
 
     return res.json({
@@ -983,7 +1138,15 @@ app.get('/api/counselor', (req, res) => {
 app.get('/api/admin/check', (req, res) => {
   const cookie = req.headers.cookie || '';
   const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
-  if(isAdmin) return res.json({ ok: true, user: { username: 'kristine carl' } });
+  if (isAdmin) {
+    return res.json({ ok: true, user: {
+      username: adminUsername || DEFAULT_COUNSELOR.username,
+      firstName: adminFirstName || '',
+      middleName: adminMiddleName || '',
+      lastName: adminLastName || '',
+      email: adminEmail || ''
+    }});
+  }
   return res.status(401).json({ ok: false });
 });
 
@@ -1901,20 +2064,23 @@ app.delete('/api/counselor/:id/leaves/:date', async (req, res) => {
 // Return or create the default/current counselor record used by admin UI
 app.get('/api/counselor/current', async (req, res) => {
   try {
-    let counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
-    if (!counselor) {
-      counselor = new Counselor({
-        title: 'Ms.',
-        firstName: 'Kristine',
-        middleName: 'Carl B.',
-        lastName: 'Lopez',
-        email: 'kristine.carl@example.com',
-        username: DEFAULT_COUNSELOR.username,
-        password: DEFAULT_COUNSELOR.password
-      });
-      await counselor.save();
-    }
-    return res.json({ counselor });
+    // Return the counselor record if it exists. Do NOT create a counselor entry
+    // for the admin account. Admins are stored in the `admins` collection.
+    const counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
+    if (counselor) return res.json({ counselor });
+
+    // If there's no counselor record for the default username, return a
+    // non-persistent object for UI display but do not persist admin data
+    // into the `counselors` collection.
+    const preview = {
+      title: 'Ms.',
+      firstName: 'Kristine',
+      middleName: 'Carl B.',
+      lastName: 'Lopez',
+      email: 'kristine.carl@example.com',
+      username: DEFAULT_COUNSELOR.username
+    };
+    return res.json({ counselor: preview, persisted: false });
   } catch (err) {
     console.error('Error fetching/creating counselor:', err);
     return res.status(500).json({ error: 'Failed to get counselor' });
@@ -1926,7 +2092,10 @@ app.post('/api/counselor/current', async (req, res) => {
   try {
     const body = req.body || {};
     const counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
-    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+    if (!counselor) {
+      // Do not create or update a counselor record for the admin account.
+      return res.status(403).json({ error: 'Admin profile is managed via /api/admin. Counselor record not found.' });
+    }
     ['title','firstName','middleName','lastName','email'].forEach(k => { if (body[k] !== undefined) counselor[k] = body[k]; });
     await counselor.save();
     // record activity: counselor updated own profile

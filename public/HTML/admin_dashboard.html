@@ -268,8 +268,9 @@
           <div id="appointmentsCalendarView" style="display:none; background:#fff; border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
             <div style="display:flex; gap:1rem; margin-bottom:1.5rem; align-items:center; justify-content:space-between;">
               <div>
-                <button id="calendarPrevBtn" class="btn" style="padding:0.5rem 1rem; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;">← Prev</button>
-                <span id="calendarMonth" style="margin:0 1rem; font-weight:600; min-width:150px; display:inline-block; text-align:center;"></span>
+              <!-- calendar controls -->
+
+              <!-- Counselor Profile Panel (now Admin Profile) -->
                 <button id="calendarNextBtn" class="btn" style="padding:0.5rem 1rem; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;">Next →</button>
               </div>
               <button id="calendarTodayBtn" class="btn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">Today</button>
@@ -560,6 +561,7 @@
             <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
               <button type="button" id="settingsBtn-password" onclick="window.switchSettingsPanel('panel-password')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #d4af37; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">🔐 Change Password</button>
               <button type="button" id="settingsBtn-counselor" onclick="window.switchSettingsPanel('panel-counselor')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">👤 Counselor Profile</button>
+              <button type="button" id="settingsBtn-leave-dates" onclick="window.switchSettingsPanel('panel-leave-dates')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">📅 Leave Dates</button>
               <button type="button" id="settingsBtn-thresholds" onclick="window.switchSettingsPanel('panel-thresholds')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">🎯 Alert Thresholds</button>
               <button type="button" id="settingsBtn-daily-limit" onclick="window.switchSettingsPanel('panel-daily-limit')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">📋 Daily Limit</button>
               <button type="button" id="settingsBtn-total-limit" onclick="window.switchSettingsPanel('panel-total-limit')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">🌐 Total Limit</button>
@@ -622,6 +624,12 @@
                   <label for="adminNewUsername" style="color: #1e40af; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">👤 New Username</label>
                   <input type="text" id="adminNewUsername" placeholder="Enter new username" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#1e40af'; this.style.boxShadow='0 0 0 3px rgba(30,64,175,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
                   <small style="color: #6b7280; display: block; margin-top: 0.5rem;">Leave blank to keep current username</small>
+                </div>
+
+                <div class="settings-field" style="margin-bottom: 1.25rem;">
+                  <label for="adminNewUsernamePassword" style="color: #1e40af; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Current Password (for username change)</label>
+                  <input type="password" id="adminNewUsernamePassword" placeholder="Enter current password to change username" onclick="event.stopPropagation()" style="width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem;" />
+                  <small style="color: #6b7280; display: block; margin-top: 0.5rem;">If provided, this password will be used when updating the username. Otherwise the main Current Password field above will be used.</small>
                 </div>
 
                 <div id="adminPasswordMessage" style="margin-bottom:1.5rem; padding:1rem; border-radius:8px; text-align:center; display:none; font-weight: 600;"></div>
@@ -690,20 +698,19 @@
               </div>
             </div>
 
-            <!-- Total Daily Limit Panel -->
-            <div id="panel-total-limit" class="settings-panel" style="background: #fff8e1; border: 2px solid #f59e0b; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
-              <h3 style="color: #0a2342; margin-top: 0; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.2rem;">🌐 Total Daily Limit</h3>
-              <p style="color: #0a2342; margin-bottom: 1.5rem; font-size: 0.95rem;">Set maximum total appointment requests across ALL students per day.</p>
+            <!-- Total Limit Panel -->
+            <div id="panel-total-limit" class="settings-panel" style="background: #fff; border: 1px solid #f59e0b; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+              <h3 style="color: #0a2342; margin-top: 0; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.2rem;">🌐 Total Limit</h3>
+              <p style="color:#6b7280; margin-bottom:1.25rem; font-size:0.95rem;">Set maximum appointment requests allowed across the entire system per day.</p>
 
               <div class="settings-field">
-                <label for="totalLimitInput">Total Requests per Day</label>
+                <label for="totalLimitInput">Requests per Day (system-wide)</label>
                 <input type="number" id="totalLimitInput" min="5" max="100" value="30" onclick="event.stopPropagation()" style="padding: 0.75rem; border: 2px solid #f59e0b; border-radius: 8px; font-size: 1rem;" />
                 <div class="help-text">Range: 5-100 requests per day (default: 30)</div>
               </div>
 
               <div id="totalLimitStatusMessage" style="margin-top: 1rem; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600; display: none;"></div>
 
-              <!-- Current Value Display -->
               <div id="totalLimitDisplay" style="background: #fff; padding: 1rem; border-radius: 8px; margin-top: 1rem; border: 1px solid #f59e0b; display: none;">
                 <p style="margin: 0; color: #0a2342; font-weight: 600;">Current Total Limit: <span id="currentTotalLimit" style="color: #f59e0b;">30</span> requests/day</p>
                 <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #6b7280;">⚠️ Maximum requests from all students combined</p>
@@ -715,60 +722,55 @@
               </div>
             </div>
 
-            <!-- Counselor Profile Panel -->
+            <!-- Admin Profile Panel -->
             <div id="panel-counselor" class="settings-panel" style="display: none; background: linear-gradient(135deg, #059669 0%, #047857 100%); border: none; border-radius: 16px; padding: 0; box-shadow: 0 10px 30px rgba(5, 150, 105, 0.3); overflow: hidden;">
-              
+
               <!-- Header Section -->
               <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 2rem; color: #fff;">
                 <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
                   <span style="font-size: 1.8rem;">👤</span>
-                  <h3 style="color: #fff; margin: 0; font-size: 1.5rem; font-weight: 700;">Counselor Profile</h3>
+                  <h3 style="color: #fff; margin: 0; font-size: 1.5rem; font-weight: 700;">Admin Profile</h3>
                 </div>
-                <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 0.95rem;">Update your professional information</p>
+                <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 0.95rem;">Update your admin account information</p>
               </div>
 
-              <!-- Form Section -->
+              <!-- Form Section (Admin account) -->
               <div style="padding: 2rem; background: #fff;">
                 <div class="settings-field" style="margin-bottom: 1.25rem;">
-                  <label for="counselorTitle" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Title</label>
-                  <select id="counselorTitle" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
-                    <option value="Mr.">Mr.</option>
-                    <option value="Mrs.">Mrs.</option>
-                    <option value="Ms.">Ms.</option>
-                    <option value="Dr.">Dr.</option>
-                  </select>
+                  <label for="adminFirstNameInput" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">First Name</label>
+                  <input type="text" id="adminFirstNameInput" placeholder="First name" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;" />
                 </div>
 
                 <div class="settings-field" style="margin-bottom: 1.25rem;">
-                  <label for="counselorFirstName" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">First Name</label>
-                  <input type="text" id="counselorFirstName" placeholder="First name" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
+                  <label for="adminMiddleNameInput" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Middle Name</label>
+                  <input type="text" id="adminMiddleNameInput" placeholder="Middle name (optional)" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;" />
                 </div>
 
                 <div class="settings-field" style="margin-bottom: 1.25rem;">
-                  <label for="counselorMiddleName" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Middle Name</label>
-                  <input type="text" id="counselorMiddleName" placeholder="Middle name (optional)" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
+                  <label for="adminLastNameInput" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Last Name</label>
+                  <input type="text" id="adminLastNameInput" placeholder="Last name" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;" />
                 </div>
 
                 <div class="settings-field" style="margin-bottom: 1.25rem;">
-                  <label for="counselorLastName" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Last Name</label>
-                  <input type="text" id="counselorLastName" placeholder="Last name" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
+                  <label for="adminEmailInput" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Email Address</label>
+                  <input type="email" id="adminEmailInput" placeholder="email@example.com" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem;" />
                 </div>
-
                 <div class="settings-field" style="margin-bottom: 1.25rem;">
-                  <label for="counselorEmail" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Email Address</label>
-                  <input type="email" id="counselorEmail" placeholder="email@example.com" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
+                  <label for="adminProfileCurrentPassword" style="color: #059669; font-weight: 600; margin-bottom: 0.5rem; display: block; font-size: 0.9rem;">Current Password (required to save changes)</label>
+                  <input type="password" id="adminProfileCurrentPassword" placeholder="Current password" onclick="event.stopPropagation()" style="width: 100%; padding: 0.875rem; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 1rem; transition: all 0.2s ease; box-sizing: border-box;" onFocus="this.style.borderColor='#059669'; this.style.boxShadow='0 0 0 3px rgba(5,150,105,0.1)'" onBlur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'" />
                 </div>
 
                 <div id="counselorProfileMessage" style="margin-bottom:1.5rem; padding:1rem; border-radius:8px; text-align:center; display:none; font-weight: 600;"></div>
 
-                <button type="button" id="saveCounselorProfileBtn" class="btn-save" onclick="event.stopPropagation()" style="width: 100%; padding: 1rem; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">💾 Save Profile</button>
+                <button type="button" id="saveCounselorProfileBtn" class="btn-save" onclick="event.stopPropagation()" style="width: 100%; padding: 1rem; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">💾 Save</button>
+
               </div>
             </div>
 
-            <!-- Counselor Leave Dates -->
-            <div style="padding: 1rem; background: #fff; border-top: 1px solid #e5e7eb; margin-top: 1rem; border-radius: 8px;">
-              <h4 style="margin:0 0 0.5rem 0; color:#0a2342;">📅 Manage Leave Dates</h4>
-              <p style="margin:0 0 0.75rem 0; color:#6b7280;">Mark dates when this counselor will be on leave. Blocked dates will be unavailable to students when booking.</p>
+            <!-- Leave Dates Panel -->
+            <div id="panel-leave-dates" class="settings-panel" style="background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+              <h3 style="color:#0a2342; margin-top:0; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; font-size:1.1rem;">📅 Manage Leave Dates</h3>
+              <p style="color:#6b7280; margin:0 0 0.75rem 0; font-size:0.95rem;">Mark dates when counselors will be on leave. Blocked dates will be unavailable to students when booking.</p>
               <div style="display:flex; gap:8px; align-items:center; margin-bottom:0.75rem;">
                 <input type="date" id="leaveDateInput" style="flex:1; padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;" />
                 <button id="addLeaveBtn" class="btn" style="padding:0.6rem 0.9rem; background:#059669; color:#fff; border:none; border-radius:6px; cursor:pointer;">Add</button>
@@ -777,9 +779,6 @@
                 <!-- Leave dates will be rendered here -->
               </ul>
             </div>
-
-          </div>
-        </div>
 
         <!-- ===== Activity Logs View ===== -->
         <div class="view hidden" id="view-activity" data-view="activity">
@@ -887,7 +886,7 @@
 <div id="counselorProfileModal" class="modal" style="display:none; align-items:center; justify-content:center;" onclick="if(event.target.id === 'counselorProfileModal') closeCounselorProfile();">
   <div class="modal-content" style="width:100%; max-width:500px; background:#fff; border-radius:12px; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3);" onclick="event.stopPropagation();">
     <div class="modal-header" style="text-align:center; margin-bottom:1.5rem; border-bottom:2px solid #e5e7eb; padding-bottom:1rem;">
-      <h2 style="margin:0; color:#0a2342; font-size:1.5rem;">Counselor Profile</h2>
+      <h2 style="margin:0; color:#0a2342; font-size:1.5rem;">Admin Profile</h2>
     </div>
     <div class="modal-body" style="margin-bottom:1.5rem;">
       <div style="text-align:center; margin-bottom:1.5rem;">
