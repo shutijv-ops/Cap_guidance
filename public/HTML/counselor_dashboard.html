@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Guidance Counseling — Counselor Dashboard</title>
+  <link href="../CSS/admin_dashboard.css" rel="stylesheet" />
+  <link href="../CSS/appointments.css" rel="stylesheet" />
+  <link href="../CSS/calendar.css" rel="stylesheet" />
+  <link href="../CSS/list_view.css" rel="stylesheet" />
+  <link href="../CSS/settings.css" rel="stylesheet" />
+  <link href="../CSS/loader.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+  <!-- Page loader (shown while app initializes) -->
+  <div id="pageLoader" class="page-loader">
+    <div class="loader-card">
+      <div class="loader-spinner" aria-hidden="true"></div>
+      <div class="loader-text">Loading dashboard</div>
+      <div class="loader-subtext">Preparing your data &nbsp;•&nbsp; Initializing modules</div>
+    </div>
+  </div>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <img src="/images/GUIDANCE%20LOGO.png" width="34" height="34" alt="Guidance Logo" style="display:block; object-fit:cover; border-radius:6px;" />
+        </div>
+        <div class="brand-text">
+          <div class="title">Guidance Counseling</div>
+          <div class="subtitle">Counselor Portal</div>
+        </div>
+      </div>
+
+      <div class="counselor-info" style="padding:1rem; margin:1rem 0; border-top:1px solid #e5e7eb; border-bottom:1px solid #e5e7eb;">
+        <div id="sidebarCounselorName" style="font-weight:500;">Ms. Kristine Carl B. Lopez</div>
+        <div id="sidebarCounselorRole" style="color:#6b7280;font-size:0.875rem;">Guidance Counselor</div>
+      </div>
+
+      <nav class="nav" id="mainNav">
+        <button data-view="dashboard" class="nav-item active"><span class="icon">🏠</span>Dashboard</button>
+        <button data-view="appointments" class="nav-item"><span class="icon">📅</span>Appointments</button>
+        <button data-view="students" class="nav-item"><span class="icon">🎓</span>Students</button>
+        <button data-view="referrals" class="nav-item"><span class="icon">🤝</span>Peer Referrals</button>
+        <button data-view="reports" class="nav-item"><span class="icon">📈</span>Reports</button>
+        <!-- Settings removed for counselor -->
+      </nav>
+
+      <div class="nav-footer">
+        <button id="logoutBtn" class="nav-item logout-btn" title="Logout"><span class="icon">🚪</span>Logout</button>
+      </div>
+      
+    </aside>
+
+    <!-- Main area -->
+    <main class="main">
+      <header class="topbar">
+        <div class="left">
+          <button id="toggleSidebar" class="hamburger" aria-label="Toggle sidebar">☰</button>
+          <div class="search">
+            <svg class="search-icon" viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35" stroke="#9aa3b2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="11" cy="11" r="6" stroke="#9aa3b2" stroke-width="1.5" fill="none"/></svg>
+            <input id="globalSearch" placeholder="Search..." aria-label="Search" />
+            <button id="globalSearchClear" class="search-clear" title="Clear search">×</button>
+          </div>
+        </div>
+
+        <div class="right">
+          <div class="notif-wrapper">
+            <button class="top-icon" id="notifBtn" title="Notifications">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 17H9" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3v3" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 8a6 6 0 0012 0" stroke="#666" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="badge-red" id="notifCount">0</span>
+            </button>
+            <div class="notif-dropdown hidden" id="notifDropdown" aria-hidden="true">
+              <div class="notif-header">
+                <strong>Notifications</strong>
+                <button id="clearAllNotifs" class="btn ghost small">Clear</button>
+              </div>
+              <ul id="notifList" class="notif-list">
+                <!-- Notifications are loaded here -->
+              </ul>
+            </div>
+          </div>
+
+          <div class="profile" id="profileBtn">
+            <div id="avatarInitials" class="avatar">MK</div>
+              <div class="profile-info">
+                <div id="topbarName" class="name">Ms. Kristine</div>
+                <div id="topbarRole" class="role">Counselor</div>
+              </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- SPA Views Container -->
+      <section class="content" id="views">
+        <!-- ===== Dashboard View (default) ===== -->
+        <div class="view" id="view-dashboard" data-view="dashboard">
+          <!-- Stat cards -->
+          <!-- Skeleton for stat cards -->
+          <div class="skeleton-placeholder">
+            <div style="display:flex; gap:12px;">
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+              <div style="flex:1"><div class="skeleton" style="height:68px; width:100%; border-radius:10px;"></div></div>
+            </div>
+          </div>
+
+          <div class="cards-grid">
+            <div class="card stat-card">
+              <div class="card-left">
+                <div class="stat-title">Total Appointments</div>
+                <div class="stat-num" id="totalAppointments">—</div>
+              </div>
+              <div class="card-right">
+                <div class="icon-round blue"><svg viewBox="0 0 24 24"><path d="M8 7h8v6H8z" fill="#fff"/></svg></div>
+              </div>
+            </div>
+
+            <div class="card stat-card">
+              <div class="card-left">
+                <div class="stat-title">Pending Requests</div>
+                <div class="stat-num" id="pendingRequests">—</div>
+              </div>
+              <div class="card-right">
+                <div class="icon-round orange"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
+              </div>
+            </div>
+
+            <div class="card stat-card">
+              <div class="card-left">
+                <div class="stat-title">Active Students</div>
+                <div class="stat-num" id="activeStudents">—</div>
+              </div>
+              <div class="card-right">
+                <div class="icon-round green"><svg viewBox="0 0 24 24"><path d="M12 12c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3z" fill="#fff"/></svg></div>
+              </div>
+            </div>
+
+            <div class="card stat-card">
+              <div class="card-left">
+                <div class="stat-title">Counselors</div>
+                <div class="stat-num" id="counselors">—</div>
+              </div>
+              <div class="card-right">
+                <div class="icon-round purple"><svg viewBox="0 0 24 24"><path d="M12 12c2 0 3-1 3-3s-1-3-3-3-3 1-3 3 1 3 3 3z" fill="#fff"/></svg></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main row: table + chart/ schedule -->
+          <div class="main-grid">
+            <div class="panel wide">
+              <div class="panel-header">
+                <h3>Recent Appointment Requests</h3>
+                <a class="view-all" href="#" data-view="appointments">View All</a>
+              </div>
+
+              <div class="table-wrap">
+                <table class="requests-table" id="requestsTable">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Type</th>
+                      <th>Date</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                        <!-- skeleton for table rows -->
+                        <tr class="skeleton-placeholder">
+                          <td colspan="6">
+                            <div class="skeleton" style="height:48px; width:100%; border-radius:8px;"></div>
+                          </td>
+                        </tr>
+                        <!-- JS fills -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel narrow">
+              <div class="small-title">Today's Schedule</div>
+              <ul class="schedule-list" id="scheduleList"></ul>
+            </div>
+
+            <div class="panel narrow">
+              <div class="small-title">Request Priority Distribution</div>
+              <div class="chart-wrap">
+                <svg id="donutChart" viewBox="0 0 36 36" class="donut"></svg>
+                <div class="chart-legend" id="chartLegend"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ===== Appointments View ===== -->
+        <div class="view hidden" id="view-appointments" data-view="appointments">
+          <div class="page-header">
+            <h2>Appointments Management</h2>
+            <div class="page-actions">
+              <button class="btn primary" id="listViewBtn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">List View</button>
+              <button class="btn" id="calendarViewBtn" style="padding:0.5rem 1.5rem; background:#e5e7eb; color:#374151; border:none; border-radius:6px; cursor:pointer;">Calendar View</button>
+            </div>
+          </div>
+
+          <!-- List View -->
+          <div id="appointmentsListView">
+
+          <div class="filter-bar card" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+            <div class="tabs" id="appointmentTabs">
+              <button class="tab active" id="tabAllAppts" data-filter="all">All Appointments <span class="pill">0</span></button>
+              <button class="tab" id="tabUpcoming" data-filter="upcoming">Upcoming <span class="pill muted">0</span></button>
+              <button class="tab" id="tabPending" data-filter="pending">Pending Requests <span class="pill orange">0</span></button>
+              <button class="tab" id="tabPast" data-filter="past">Past Appointments <span class="pill muted">0</span></button>
+              <button class="tab" id="tabMissed" data-filter="missed">Missed Appointments <span class="pill red">0</span></button>
+            </div>
+            <div class="filters" style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+              <div class="filter-item"><input type="text" id="rangeFrom" class="filter-input" placeholder="From (YYYY-MM-DD)" autocomplete="off" /></div>
+              <div class="filter-item"><input type="text" id="rangeTo" class="filter-input" placeholder="To (YYYY-MM-DD)" autocomplete="off" /></div>
+              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+              <div class="filter-item"><select id="filterCounselor" class="filter-select"><option>All Counselors</option></select></div>
+              <div class="filter-item"><button class="btn ghost filter-reset" id="resetFilters">Reset</button></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div id="listView" class="table-wrap">
+              <table class="requests-table" id="appointmentsTable">
+                <thead>
+                  <tr>
+                    <th><input id="selectAllAppointments" type="checkbox" /></th>
+                    <th>Student</th>
+                    <th>Type</th>
+                    <th>Date & Time</th>
+                    <th>Counselor</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- JS will populate -->
+                </tbody>
+              </table>
+            </div>
+            <div id="calendarView" class="hidden">
+              <!-- Calendar will be rendered here -->
+            </div>
+            <div class="table-footer">
+              <div id="appointmentsSummary">Showing 0-0 of 0 appointments</div>
+              <div class="pagination" id="appointmentsPagination"><!-- JS will render pagination here --></div>
+            </div>
+          </div>
+          </div>
+
+          <!-- Calendar View -->
+          <div id="appointmentsCalendarView" style="display:none; background:#fff; border-radius:8px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <div style="display:flex; gap:1rem; margin-bottom:1.5rem; align-items:center; justify-content:space-between;">
+              <div>
+              <!-- calendar controls -->
+
+              <!-- Counselor Profile Panel (now Admin Profile) -->
+                <button id="calendarNextBtn" class="btn" style="padding:0.5rem 1rem; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; cursor:pointer;">Next →</button>
+              </div>
+              <button id="calendarTodayBtn" class="btn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">Today</button>
+            </div>
+            <div id="calendarContainer" style="overflow-x:auto;"></div>
+          </div>
+        </div>
+
+        <!-- ===== Students View ===== -->
+        <div class="view hidden" id="view-students" data-view="students">
+          <div class="page-header">
+            <h2>Student Management</h2>
+            <div class="page-actions">
+            </div>
+          </div>
+
+          <div class="cards-grid small">
+            <div class="card stat-card small">
+              <div class="card-left">
+                <div class="stat-title">Total Students</div>
+                <div class="stat-num" id="totalStudents">—</div>
+              </div>
+              <div class="card-right"><div class="icon-round blue">👥</div></div>
+            </div>
+            <div class="card stat-card small">
+              <div class="card-left">
+                <div class="stat-title">Active Cases</div>
+                <div class="stat-num" id="activeCases">—</div>
+                <div class="stat-sub">Currently in counseling</div>
+              </div>
+              <div class="card-right"><div class="icon-round green">💚</div></div>
+            </div>
+            <div class="card stat-card small">
+              <div class="card-left">
+                <div class="stat-title">Recent Appointments</div>
+                <div class="stat-num" id="recentAppointments">—</div>
+                <div class="stat-sub">This month</div>
+              </div>
+              <div class="card-right"><div class="icon-round orange">📅</div></div>
+            </div>
+            <div class="card stat-card small">
+              <div class="card-left">
+                <div class="stat-title">High Priority</div>
+                <div class="stat-num" id="highPriorityCount">—</div>
+                <div class="stat-sub">Requiring attention</div>
+              </div>
+              <div class="card-right"><div class="icon-round purple">⚠️ </div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Student Directory</h3>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span>Sort by Last Appointment:</span>
+                <button id="sortStudentsAsc" title="Sort Ascending" class="btn ghost" style="font-size:1.2rem;">&#8593;</button>
+                <button id="sortStudentsDesc" title="Sort Descending" class="btn ghost" style="font-size:1.2rem;">&#8595;</button>
+                <button class="btn">Export</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="requests-table" id="studentsTable">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Department</th>
+                    <th>Year Level</th>
+                    <th>Last Appointment</th>
+                    <th>Sessions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- JS populates -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-footer">
+              <div id="studentsSummary">Showing 0-0 of 0 students</div>
+              <div class="pagination" id="studentsPagination"><!-- JS will render pagination here --></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Counselors View ===== -->
+        <!-- Peer Referral Details Modal -->
+        <div id="referralDetailsModal" class="modal" style="display:none;">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Peer Concern Referral Details</h3>
+              <button id="closeReferralDetailsBtn" class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div id="referralDetailsBody"><!-- Filled by JS --></div>
+            </div>
+            <div class="modal-footer">
+              <button id="createApptFromReferralBtn" class="btn" style="background:#d4af37; color:#0a2342; border:none;">Create Appointment</button>
+              <button id="saveReferralNotesBtn" class="btn" style="background:#0a2342; color:#fff; border:none;">Save</button>
+              <button id="closeReferralModalBtn2" class="btn ghost">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Referrals View (SPA) -->
+        <div class="view hidden" id="view-referrals" data-view="referrals">
+          <div class="page-header">
+            <h2>Peer Referrals</h2>
+            <div class="page-actions">
+              <button id="refreshReferralsBtn" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="requests-table" id="referralsTable">
+                <thead>
+                  <tr>
+                    <th>Referral ID</th>
+                    <th>Referred Student</th>
+                    <th>Concern Type</th>
+                    <th>Urgency</th>
+                    <th>Date Submitted</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <!-- Schedule From Referral Modal -->
+        <div id="scheduleFromReferralModal" class="modal" style="display:none;">
+          <div class="modal-content" style="max-width:720px;">
+            <div class="modal-header">
+              <h3>Schedule Appointment From Referral</h3>
+              <button id="closeScheduleModalBtn" class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div style="display:grid; grid-template-columns:1fr 300px; gap:1rem;">
+                <div>
+                  <label style="display:block; font-weight:600; margin-bottom:0.5rem;">Select Date</label>
+                  <input type="date" id="schedDate" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6;" />
+                  <div style="margin-top:0.75rem;">
+                    <label style="font-weight:600; display:block; margin-bottom:0.5rem;">Available Slots</label>
+                    <div id="schedMorningSlots" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
+                    <div id="schedAfternoonSlots" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+                  </div>
+                </div>
+                <div style="border-left:1px solid #eef2f7; padding-left:1rem;">
+                  <div style="font-weight:600; margin-bottom:0.5rem;">Selected Student</div>
+                  <div id="schedStudentInfo" style="margin-bottom:1rem; color:#0a2342; font-weight:600;">-</div>
+                  <div style="font-weight:600; margin-bottom:0.25rem;">Selected Slot</div>
+                  <div id="schedSelectedSlot" style="margin-bottom:1rem; color:#374151;">None</div>
+                  <div style="font-weight:600; margin-bottom:0.25rem;">Urgency</div>
+                  <select id="schedUrgency" style="width:100%; padding:0.5rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"><option>Normal</option><option>Urgent</option><option>Crisis</option></select>
+                  <div style="font-weight:600; margin-bottom:0.25rem;">Counselor Notes (optional)</div>
+                  <textarea id="schedCounselorNotes" rows="5" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"></textarea>
+                  <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                    <button id="schedCreateBtn" class="btn" style="background:#0a2342; color:#fff; border:none;">Create Appointment</button>
+                    <button id="schedCancelBtn" class="btn ghost">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="view hidden" id="view-counselors" data-view="counselors">
+          <div class="page-header">
+            <h2>Counselors</h2>
+            <div class="page-actions">
+              <!-- Add Counselor removed for counselor users -->
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Counselor Directory</h3>
+            </div>
+            <div class="table-wrap">
+              <table class="requests-table" id="counselorsTable">
+                <thead>
+                  <tr>
+                    <th>Avatar</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>On Leave</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- JS populates -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Reports View ===== -->
+        <div class="view hidden" id="view-reports" data-view="reports">
+          <div class="page-header">
+            <h2>Reports</h2>
+            <div class="page-actions">
+              <button class="btn" id="printReportBtn" style="background:#10b981; color:#fff; margin-left:8px;">🖨️ Print Report</button>
+            </div>
+          </div>
+
+          <div class="panel">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div style="flex:1; min-width:180px;">
+                  <h3 style="margin:0">Reports Overview</h3>
+                  <p class="text-muted" style="margin:6px 0 0">Monthly appointments and urgency trends. Use filters above to scope the data.</p>
+                </div>
+                <div class="report-stats" style="display:flex; gap:12px; align-items:stretch; flex-wrap:wrap;">
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
+                    <div class="stat-title">This Month</div>
+                    <div class="stat-num" id="reportMonthCount">—</div>
+                  </div>
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
+                    <div class="stat-title">Avg. Sessions / Month</div>
+                    <div class="stat-num" id="reportAvgSession">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Monthly Appointments</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Last 12 months</div>
+                  <div style="height:240px; width:100%; box-sizing:border-box;">
+                    <canvas id="monthlyBarChart" class="chart-canvas" aria-label="Monthly appointments bar chart"></canvas>
+                  </div>
+                </div>
+
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Urgency Trend</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Crisis · High · Medium · Low</div>
+                  <div style="height:240px; width:100%; box-sizing:border-box;">
+                    <canvas id="urgencyLineChart" class="chart-canvas" aria-label="Urgency trend line chart"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by College</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Grouped by college/department</div>
+                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
+                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
+                      <canvas id="collegeDonut" class="chart-canvas" aria-label="College distribution doughnut chart" style="max-width:160px; max-height:160px;"></canvas>
+                    </div>
+                    <div id="collegeLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                      <!-- legend inserted by JS -->
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by Course</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Individual course breakdown</div>
+                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
+                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
+                      <canvas id="courseDonut" class="chart-canvas" aria-label="Course distribution doughnut chart" style="max-width:160px; max-height:160px;"></canvas>
+                    </div>
+                    <div id="courseLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                      <!-- legend inserted by JS -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+             </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <script src="../JS/tab_utils.js"></script>
+  <script src="../JS/calendar.js"></script>
+  <script src="../JS/view_toggle.js"></script>
+  <script src="../JS/ui_modals.js"></script>
+  <!-- Logout Confirmation Modal (needed so logout button opens a dialog) -->
+  <div id="logoutModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:2000; backdrop-filter:blur(4px);">
+    <div class="modal-content" style="background:linear-gradient(135deg, #ffffff 0%, #f9fafb 100%); border-radius:16px; padding:2.5rem; max-width:420px; width:90%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15), 0 0 1px rgba(0,0,0,0.05); border:1px solid rgba(255,255,255,0.8); animation:modalSlideIn 0.3s ease-out;">
+      <div style="text-align:center; margin-bottom:2rem;">
+        <div style="font-size:4rem; margin-bottom:1.25rem; animation:logoutIconBounce 0.6s ease-out;">🚪</div>
+        <h2 style="margin:0 0 0.75rem 0; color:#0f172a; font-size:1.625rem; font-weight:700; letter-spacing:-0.5px;">Confirm Logout</h2>
+        <p style="margin:0; color:#64748b; font-size:0.95rem; line-height:1.6;">You will be signed out from your account. Are you sure?</p>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:0.75rem; padding-top:1.5rem;">
+        <button id="logoutCancelBtn" class="btn" style="flex:1; padding:0.875rem 1.25rem; border-radius:10px; cursor:pointer; border:2px solid #e2e8f0; background:#fff; color:#475569; font-weight:600; transition:all 0.2s ease; font-size:0.95rem;">
+          Cancel
+        </button>
+        <button id="logoutConfirmBtn" class="btn" style="flex:1; padding:0.875rem 1.25rem; border-radius:10px; cursor:pointer; background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color:#fff; font-weight:600; border:none; transition:all 0.2s ease; font-size:0.95rem; box-shadow:0 4px 15px rgba(59, 130, 246, 0.4);">
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+  @keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes logoutIconBounce { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.1);} }
+  #logoutConfirmBtn:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); box-shadow: 0 8px 20px rgba(59, 130, 246, 0.5); transform: translateY(-2px); }
+  #logoutCancelBtn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+  #logoutConfirmBtn:active { transform: translateY(0); }
+  #logoutCancelBtn:active { background: #e2e8f0; }
+  </style>
+
+  <script src="../JS/admin_dashboard.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="../JS/reports_new.js"></script>
+</body>
+</html>

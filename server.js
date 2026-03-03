@@ -422,7 +422,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Minimal CORS (allow same-origin or any for demo)
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -678,14 +680,20 @@ app.post('/api/admin/login', async (req, res) => {
         const pwMatch = await bcrypt.compare(password, adminDoc.password).catch(()=>false);
         console.log('[ADMIN DEBUG] login attempt for', username.trim(), 'found DB admin, pwMatch:', pwMatch);
         if (pwMatch) {
-          res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
+          res.setHeader('Set-Cookie', [
+            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
+            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; SameSite=Lax`,
+            // clear any counselor cookies from prior sessions
+            'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
+            'counselor_user=; Path=/; Max-Age=0'
+          ]);
           (async () => {
             try {
               const log = await ActivityLog.create({ actor: adminDoc.username, action: 'login', details: `Admin logged in` });
               try { sendSseEvent('activity', log); } catch (e) {}
             } catch (e) { console.warn('Failed to record admin login activity', e); }
           })();
-          return res.json({ ok: true, user: { username: adminDoc.username, name: `${adminDoc.firstName || ''}${adminDoc.middleName ? ' ' + adminDoc.middleName : ''}${adminDoc.lastName ? ' ' + adminDoc.lastName : ''}`.trim(), role: adminDoc.role || DEFAULT_COUNSELOR.role } });
+          return res.json({ ok: true, isAdmin: true, isCounselor: false, user: { username: adminDoc.username, name: `${adminDoc.firstName || ''}${adminDoc.middleName ? ' ' + adminDoc.middleName : ''}${adminDoc.lastName ? ' ' + adminDoc.lastName : ''}`.trim(), role: adminDoc.role || DEFAULT_COUNSELOR.role } });
         }
       }
     } catch (e) {
@@ -695,7 +703,12 @@ app.post('/api/admin/login', async (req, res) => {
     // Fallback: in-memory check for legacy/default admin
     const allowedUsername = (adminUsername || DEFAULT_COUNSELOR.username).toLowerCase();
     if(username.trim().toLowerCase() === allowedUsername && password === adminPassword){
-      res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly');
+      res.setHeader('Set-Cookie', [
+        'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
+        `admin_user=${encodeURIComponent(adminUsername || DEFAULT_COUNSELOR.username)}; Path=/; SameSite=Lax`,
+        'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
+        'counselor_user=; Path=/; Max-Age=0'
+      ]);
       (async () => {
         try {
           const log = await ActivityLog.create({ actor: adminUsername || DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` });
@@ -703,13 +716,100 @@ app.post('/api/admin/login', async (req, res) => {
         } catch (e) { console.warn('Failed to record admin login activity', e); }
       })();
       const computedName = (adminFirstName || adminLastName) ? `${adminFirstName || ''}${adminMiddleName ? ' ' + adminMiddleName : ''}${adminLastName ? ' ' + adminLastName : ''}`.trim() : DEFAULT_COUNSELOR.name;
-      return res.json({ ok: true, user: { username: adminUsername || DEFAULT_COUNSELOR.username, name: computedName, role: DEFAULT_COUNSELOR.role } });
+      return res.json({ ok: true, isAdmin: true, isCounselor: false, user: { username: adminUsername || DEFAULT_COUNSELOR.username, name: computedName, role: DEFAULT_COUNSELOR.role } });
     }
 
     return res.status(401).json({ error: 'invalid credentials' });
   } catch (err) {
     console.error('admin login error:', err);
     return res.status(500).json({ error: 'server error' });
+  }
+});
+
+// Unified login: try admin first, then counselor
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if(!username || !password) return res.status(400).json({ error: 'missing credentials' });
+
+    // Try admin first (DB or in-memory)
+    try {
+      const adminDoc = await Admin.findOne({ username: username.trim() }).exec();
+      if (adminDoc) {
+        const pwMatch = await bcrypt.compare(password, adminDoc.password).catch(()=>false);
+        if (pwMatch) {
+          res.setHeader('Set-Cookie', [
+            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
+            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; SameSite=Lax`
+          ]);
+          (async () => {
+            try { await ActivityLog.create({ actor: adminDoc.username, action: 'login', details: `Admin logged in` }); } catch (e) {}
+          })();
+          return res.json({ ok: true, isAdmin: true, isCounselor: false, user: { username: adminDoc.username, name: `${adminDoc.firstName || ''}${adminDoc.middleName ? ' ' + adminDoc.middleName : ''}${adminDoc.lastName ? ' ' + adminDoc.lastName : ''}`.trim(), role: adminDoc.role || 'Admin' } });
+        }
+      }
+    } catch (e) { console.warn('[LOGIN] error querying Admin collection', e); }
+
+    // Fallback in-memory admin check
+    const allowedUsername = (adminUsername || DEFAULT_COUNSELOR.username).toLowerCase();
+    if(username.trim().toLowerCase() === allowedUsername && password === adminPassword){
+      res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly; SameSite=Lax');
+      (async () => { try { await ActivityLog.create({ actor: adminUsername || DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` }); } catch (e) {} })();
+      const computedName = (adminFirstName || adminLastName) ? `${adminFirstName || ''}${adminMiddleName ? ' ' + adminMiddleName : ''}${adminLastName ? ' ' + adminLastName : ''}`.trim() : DEFAULT_COUNSELOR.name;
+      return res.json({ ok: true, isAdmin: true, isCounselor: false, user: { username: adminUsername || DEFAULT_COUNSELOR.username, name: computedName, role: DEFAULT_COUNSELOR.role || 'Admin' } });
+    }
+
+    // Try counselor collection
+    try {
+      const c = await Counselor.findOne({ username: username.trim() }).exec();
+      if (c) {
+        // Support both plaintext and bcrypt hashes for counselor password
+        let ok = false;
+        try {
+          if (typeof c.password === 'string' && c.password.startsWith('$2')) {
+            ok = await bcrypt.compare(password, c.password).catch(()=>false);
+          } else {
+            ok = password === c.password;
+          }
+        } catch (e) { ok = false; }
+
+        if (ok) {
+          // Only allow active counselors
+          if (c.status && c.status !== 'Active') {
+            return res.status(403).json({ error: 'counselor not active' });
+          }
+          res.setHeader('Set-Cookie', [
+            'counselor_auth=1; Path=/; HttpOnly; SameSite=Lax',
+            `counselor_user=${encodeURIComponent(c.username)}; Path=/; SameSite=Lax`,
+            // clear any admin cookies from prior sessions
+            'admin_auth=; Path=/; HttpOnly; Max-Age=0',
+            'admin_user=; Path=/; Max-Age=0'
+          ]);
+          (async () => { try { await ActivityLog.create({ actor: c.username, action: 'login', details: `Counselor logged in` }); } catch (e) {} })();
+          return res.json({ ok: true, isAdmin: false, isCounselor: true, user: { username: c.username, name: `${c.firstName || ''}${c.middleName ? ' ' + c.middleName : ''}${c.lastName ? ' ' + c.lastName : ''}`.trim(), role: c.role || 'Counselor' } });
+        }
+      }
+    } catch (e) { console.warn('[LOGIN] error querying Counselor collection', e); }
+
+    return res.status(401).json({ error: 'invalid credentials' });
+  } catch (err) {
+    console.error('login error:', err);
+    return res.status(500).json({ error: 'server error' });
+  }
+});
+
+// Serve counselor dashboard via protected route
+app.get(['/HTML/counselor_dashboard.html', '/public/HTML/counselor_dashboard.html'], (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isCounselor = cookie.split(';').map(s => s.trim()).includes('counselor_auth=1');
+    if (!isCounselor) {
+      return res.redirect('/HTML/landing.html');
+    }
+    return res.sendFile(path.join(__dirname, 'public', 'HTML', 'counselor_dashboard.html'));
+  } catch (err) {
+    console.warn('Error serving protected counselor page', err);
+    return res.redirect('/HTML/landing.html');
   }
 });
 
@@ -1150,6 +1250,38 @@ app.get('/api/admin/check', (req, res) => {
   return res.status(401).json({ ok: false });
 });
 
+// Who am I — return user info for admin or counselor based on cookies
+app.get('/api/me', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+    const isAdmin = parts.includes('admin_auth=1') || parts.some(p => p.startsWith('admin_auth='));
+    if (isAdmin) {
+      // determine username from admin_user cookie if present
+      const adminUserPart = parts.find(p => p.startsWith('admin_user='));
+      const username = adminUserPart ? decodeURIComponent(adminUserPart.split('=')[1]) : (adminUsername || DEFAULT_COUNSELOR.username);
+      const name = (adminFirstName || adminLastName) ? `${adminFirstName || ''}${adminMiddleName ? ' ' + adminMiddleName : ''}${adminLastName ? ' ' + adminLastName : ''}`.trim() : DEFAULT_COUNSELOR.name;
+      return res.json({ ok: true, user: { username, name, role: 'Admin' } });
+    }
+
+    const isCounselor = parts.includes('counselor_auth=1') || parts.some(p => p.startsWith('counselor_auth='));
+    if (isCounselor) {
+      const cUserPart = parts.find(p => p.startsWith('counselor_user='));
+      const username = cUserPart ? decodeURIComponent(cUserPart.split('=')[1]) : null;
+      if (!username) return res.status(200).json({ ok: false });
+      const c = await Counselor.findOne({ username }).select('-password').lean();
+      if (!c) return res.status(404).json({ error: 'counselor not found' });
+      const name = `${c.title || ''} ${c.firstName || ''}${c.middleName ? ' ' + c.middleName : ''} ${c.lastName || ''}`.trim();
+      return res.json({ ok: true, user: { username: c.username, name, role: c.role || 'Counselor' } });
+    }
+
+    return res.status(401).json({ ok: false });
+  } catch (e) {
+    console.error('/api/me error', e);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
 // Admin: get thresholds (persistent)
 app.get('/api/admin/thresholds', async (req, res) => {
   try {
@@ -1193,8 +1325,11 @@ app.post('/api/admin/thresholds', async (req, res) => {
 });
 
 app.post('/api/admin/logout', (req, res) => {
-  // clear cookie
-  res.setHeader('Set-Cookie', 'admin_auth=; Path=/; HttpOnly; Max-Age=0');
+  // clear cookies
+  res.setHeader('Set-Cookie', [
+    'admin_auth=; Path=/; HttpOnly; Max-Age=0',
+    'admin_user=; Path=/; Max-Age=0'
+  ]);
   // record logout activity
   (async () => {
     try {
@@ -1203,6 +1338,39 @@ app.post('/api/admin/logout', (req, res) => {
     } catch (e) { console.warn('Failed to record admin logout activity', e); }
   })();
   res.json({ ok: true });
+});
+
+// Generic logout endpoint - clears any auth cookies (admin or counselor)
+app.post('/api/logout', (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+    let actor = 'system';
+    const adminUserPart = parts.find(p => p.startsWith('admin_user='));
+    const counselorUserPart = parts.find(p => p.startsWith('counselor_user='));
+    if (adminUserPart) actor = decodeURIComponent(adminUserPart.split('=')[1]);
+    else if (counselorUserPart) actor = decodeURIComponent(counselorUserPart.split('=')[1]);
+
+    // clear both admin and counselor cookies
+    res.setHeader('Set-Cookie', [
+      'admin_auth=; Path=/; HttpOnly; Max-Age=0',
+      'admin_user=; Path=/; Max-Age=0',
+      'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
+      'counselor_user=; Path=/; Max-Age=0'
+    ]);
+
+    (async () => {
+      try {
+        await ActivityLog.create({ actor: actor || 'user', action: 'logout', details: `${actor} logged out` });
+        try { sendSseEvent('activity', { actor, action: 'logout' }); } catch (e) {}
+      } catch (e) { /* ignore */ }
+    })();
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('/api/logout error', e);
+    return res.status(500).json({ error: 'failed' });
+  }
 });
 
 // SSE endpoint

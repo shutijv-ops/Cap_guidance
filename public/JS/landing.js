@@ -46,6 +46,39 @@ const studentForm = document.getElementById("studentForm");
 const adminForm = document.getElementById("adminForm");
 const profileChooser = document.getElementById("profileChooser");
 
+// Admin preview elements (show counselor name/role dynamically)
+const adminPreviewName = document.getElementById('adminPreviewName');
+const adminPreviewRole = document.getElementById('adminPreviewRole');
+const adminUserInput = document.getElementById('adminUser');
+
+async function updateAdminPreview() {
+  try {
+    const uname = (adminUserInput?.value || '').trim();
+    if (!uname) {
+      if (adminPreviewName) adminPreviewName.textContent = 'Counselor';
+      if (adminPreviewRole) adminPreviewRole.textContent = 'Guidance Counselor';
+      return;
+    }
+    const res = await fetch('/api/counselors');
+    if (!res.ok) return;
+    const list = await res.json();
+    const match = list.find(c => (c.username || '').toLowerCase() === uname.toLowerCase() || (c.email || '').toLowerCase() === uname.toLowerCase());
+    if (match) {
+      if (adminPreviewName) adminPreviewName.textContent = `${match.title || ''} ${match.firstName || ''}${match.middleName ? ' ' + match.middleName : ''} ${match.lastName || ''}`.trim();
+      if (adminPreviewRole) adminPreviewRole.textContent = match.role || 'Guidance Counselor';
+    } else {
+      if (adminPreviewName) adminPreviewName.textContent = 'Counselor';
+      if (adminPreviewRole) adminPreviewRole.textContent = 'Guidance Counselor';
+    }
+  } catch (e) {
+    // ignore errors — keep default preview
+  }
+}
+
+if (adminUserInput) {
+  adminUserInput.addEventListener('input', () => { updateAdminPreview(); });
+}
+
 profileBtn.addEventListener("click", (e) => {
   e.preventDefault();
   loginModal.style.display = "flex";
@@ -72,23 +105,34 @@ chooseAdminBtn.addEventListener("click", () => {
   adminForm.style.display = "block";
 });
 
-// Admin login submit
+// Admin / Counselor login submit (unified)
 const adminLoginBtn = document.getElementById('adminLoginBtn');
 if(adminLoginBtn){
   adminLoginBtn.addEventListener('click', async () => {
     const user = document.getElementById('adminUser').value || '';
     const pass = document.getElementById('adminPass').value || '';
     try{
-      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }), credentials: 'include' });
+      const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }), credentials: 'include' });
       if(!res.ok){
         const e = await res.json().catch(()=>({}));
         showActionModal(e.error || 'Login failed', { type: 'error' });
         return;
       }
-      // success — redirect to admin dashboard
-      window.location.href = '/HTML/admin_dashboard.html';
+      const data = await res.json();
+      // Persist authenticated user info for dashboard pages
+      try { sessionStorage.setItem('authUser', JSON.stringify(data.user || {})); } catch (e) {}
+      // Prefer explicit flags from server; fall back to role text
+      if (data?.isAdmin) {
+        window.location.href = '/HTML/admin_dashboard.html';
+      } else if (data?.isCounselor) {
+        window.location.href = '/HTML/counselor_dashboard.html';
+      } else {
+        const role = (data?.user?.role || '').toString().toLowerCase();
+        if(role.includes('admin')) window.location.href = '/HTML/admin_dashboard.html';
+        else window.location.href = '/HTML/counselor_dashboard.html';
+      }
     }catch(err){
-      console.error('Admin login error', err);
+      console.error('Login error', err);
       showActionModal('Login failed', { type: 'error' });
     }
   });
