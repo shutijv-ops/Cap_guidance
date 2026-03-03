@@ -47,8 +47,7 @@
         <button data-view="dashboard" class="nav-item active"><span class="icon">🏠</span>Dashboard</button>
         <button data-view="appointments" class="nav-item"><span class="icon">📅</span>Appointments</button>
         <button data-view="students" class="nav-item"><span class="icon">🎓</span>Students</button>
-        <button data-view="referrals" class="nav-item"><span class="icon">🤝</span>Peer Referrals</button>
-        <button data-view="reports" class="nav-item"><span class="icon">📈</span>Reports</button>
+        
         <button data-view="settings" class="nav-item"><span class="icon">⚙️</span>Settings</button>
       </nav>
 
@@ -125,7 +124,7 @@
 
             <div class="card stat-card">
               <div class="card-left">
-                <div class="stat-title">Pending Requests</div>
+                <div class="stat-title">Pending Session</div>
                 <div class="stat-num" id="pendingRequests">—</div>
               </div>
               <div class="card-right">
@@ -158,7 +157,7 @@
           <div class="main-grid">
             <div class="panel wide">
               <div class="panel-header">
-                <h3>Recent Appointment Requests</h3>
+                <h3>Recent Appointments Assigned</h3>
                 <a class="view-all" href="#" data-view="appointments">View All</a>
               </div>
 
@@ -193,10 +192,78 @@
             </div>
 
             <div class="panel narrow">
-              <div class="small-title">Request Priority Distribution</div>
+              <div class="small-title">Appointment Priority Distribution</div>
               <div class="chart-wrap">
-                <svg id="donutChart" viewBox="0 0 36 36" class="donut"></svg>
+                <canvas id="donutChart" class="donut" width="110" height="110" style="width:110px; height:110px;"></canvas>
                 <div class="chart-legend" id="chartLegend"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reports embedded into dashboard for counselors -->
+          <div style="margin-top:20px;">
+            <div class="panel">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <div style="flex:1; min-width:180px;">
+                  <h3 style="margin:0">Reports Overview</h3>
+                  <p class="text-muted" style="margin:6px 0 0">Monthly appointments and urgency trends. Use filters above to scope the data.</p>
+                </div>
+                <div class="report-stats" style="display:flex; gap:12px; align-items:stretch; flex-wrap:wrap;">
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
+                    <div class="stat-title">This Month</div>
+                    <div class="stat-num" id="reportMonthCount">—</div>
+                  </div>
+                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
+                    <div class="stat-title">Avg. Sessions / Month</div>
+                    <div class="stat-num" id="reportAvgSession">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; margin-top:12px;">
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Monthly Appointments</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Last 12 months</div>
+                  <div style="height:240px; width:100%; box-sizing:border-box;">
+                    <canvas id="monthlyBarChart" class="chart-canvas" aria-label="Monthly appointments bar chart"></canvas>
+                  </div>
+                </div>
+
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Urgency Trend</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Crisis · High · Medium · Low</div>
+                  <div style="height:240px; width:100%; box-sizing:border-box;">
+                    <canvas id="urgencyLineChart" class="chart-canvas" aria-label="Urgency trend line chart"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by College</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Grouped by college/department</div>
+                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
+                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
+                      <canvas id="collegeDonut" class="chart-canvas" aria-label="College distribution doughnut chart" width="160" height="160" style="max-width:160px; max-height:160px;"></canvas>
+                    </div>
+                    <div id="collegeLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                      <!-- legend inserted by JS -->
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by Course</div>
+                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Individual course breakdown</div>
+                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
+                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
+                      <canvas id="courseDonut" class="chart-canvas" aria-label="Course distribution doughnut chart" width="160" height="160" style="max-width:160px; max-height:160px;"></canvas>
+                    </div>
+                    <div id="courseLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                      <!-- legend inserted by JS -->
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -356,89 +423,7 @@
         </div>
 
         <!-- ===== Counselors View ===== -->
-        <!-- Peer Referral Details Modal -->
-        <div id="referralDetailsModal" class="modal" style="display:none;">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h3>Peer Concern Referral Details</h3>
-              <button id="closeReferralDetailsBtn" class="close-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-              <div id="referralDetailsBody"><!-- Filled by JS --></div>
-            </div>
-            <div class="modal-footer">
-              <button id="createApptFromReferralBtn" class="btn" style="background:#d4af37; color:#0a2342; border:none;">Create Appointment</button>
-              <button id="saveReferralNotesBtn" class="btn" style="background:#0a2342; color:#fff; border:none;">Save</button>
-              <button id="closeReferralModalBtn2" class="btn ghost">Close</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Referrals View (SPA) -->
-        <div class="view hidden" id="view-referrals" data-view="referrals">
-          <div class="page-header">
-            <h2>Peer Referrals</h2>
-            <div class="page-actions">
-              <button id="refreshReferralsBtn" class="btn">Refresh</button>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="table-wrap">
-              <table class="requests-table" id="referralsTable">
-                <thead>
-                  <tr>
-                    <th>Referral ID</th>
-                    <th>Referred Student</th>
-                    <th>Concern Type</th>
-                    <th>Urgency</th>
-                    <th>Date Submitted</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <!-- Schedule From Referral Modal -->
-        <div id="scheduleFromReferralModal" class="modal" style="display:none;">
-          <div class="modal-content" style="max-width:720px;">
-            <div class="modal-header">
-              <h3>Schedule Appointment From Referral</h3>
-              <button id="closeScheduleModalBtn" class="close-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-              <div style="display:grid; grid-template-columns:1fr 300px; gap:1rem;">
-                <div>
-                  <label style="display:block; font-weight:600; margin-bottom:0.5rem;">Select Date</label>
-                  <input type="date" id="schedDate" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6;" />
-                  <div style="margin-top:0.75rem;">
-                    <label style="font-weight:600; display:block; margin-bottom:0.5rem;">Available Slots</label>
-                    <div id="schedMorningSlots" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
-                    <div id="schedAfternoonSlots" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
-                  </div>
-                </div>
-                <div style="border-left:1px solid #eef2f7; padding-left:1rem;">
-                  <div style="font-weight:600; margin-bottom:0.5rem;">Selected Student</div>
-                  <div id="schedStudentInfo" style="margin-bottom:1rem; color:#0a2342; font-weight:600;">-</div>
-                  <div style="font-weight:600; margin-bottom:0.25rem;">Selected Slot</div>
-                  <div id="schedSelectedSlot" style="margin-bottom:1rem; color:#374151;">None</div>
-                  <div style="font-weight:600; margin-bottom:0.25rem;">Urgency</div>
-                  <select id="schedUrgency" style="width:100%; padding:0.5rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"><option>Normal</option><option>Urgent</option><option>Crisis</option></select>
-                  <div style="font-weight:600; margin-bottom:0.25rem;">Counselor Notes (optional)</div>
-                  <textarea id="schedCounselorNotes" rows="5" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #e6eef6; margin-bottom:1rem;"></textarea>
-                  <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                    <button id="schedCreateBtn" class="btn" style="background:#0a2342; color:#fff; border:none;">Create Appointment</button>
-                    <button id="schedCancelBtn" class="btn ghost">Cancel</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        
         <div class="view hidden" id="view-counselors" data-view="counselors">
           <div class="page-header">
             <h2>Counselors</h2>
@@ -471,80 +456,7 @@
           </div>
         </div>
 
-        <!-- ===== Reports View ===== -->
-        <div class="view hidden" id="view-reports" data-view="reports">
-          <div class="page-header">
-            <h2>Reports</h2>
-            <div class="page-actions">
-              <button class="btn" id="printReportBtn" style="background:#10b981; color:#fff; margin-left:8px;">🖨️ Print Report</button>
-            </div>
-          </div>
-
-          <div class="panel">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                <div style="flex:1; min-width:180px;">
-                  <h3 style="margin:0">Reports Overview</h3>
-                  <p class="text-muted" style="margin:6px 0 0">Monthly appointments and urgency trends. Use filters above to scope the data.</p>
-                </div>
-                <div class="report-stats" style="display:flex; gap:12px; align-items:stretch; flex-wrap:wrap;">
-                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
-                    <div class="stat-title">This Month</div>
-                    <div class="stat-num" id="reportMonthCount">—</div>
-                  </div>
-                  <div class="card" style="min-width:140px; max-width:180px; width:100%; padding:10px 14px; box-sizing:border-box;">
-                    <div class="stat-title">Avg. Sessions / Month</div>
-                    <div class="stat-num" id="reportAvgSession">—</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
-                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
-                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Monthly Appointments</div>
-                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Last 12 months</div>
-                  <div style="height:240px; width:100%; box-sizing:border-box;">
-                    <canvas id="monthlyBarChart" class="chart-canvas" aria-label="Monthly appointments bar chart"></canvas>
-                  </div>
-                </div>
-
-                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
-                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Urgency Trend</div>
-                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Crisis · High · Medium · Low</div>
-                  <div style="height:240px; width:100%; box-sizing:border-box;">
-                    <canvas id="urgencyLineChart" class="chart-canvas" aria-label="Urgency trend line chart"></canvas>
-                  </div>
-                </div>
-              </div>
-
-              <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
-                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by College</div>
-                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Grouped by college/department</div>
-                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
-                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
-                      <canvas id="collegeDonut" class="chart-canvas" aria-label="College distribution doughnut chart" style="max-width:160px; max-height:160px;"></canvas>
-                    </div>
-                    <div id="collegeLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
-                      <!-- legend inserted by JS -->
-                    </div>
-                  </div>
-                </div>
-
-                <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
-                  <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by Course</div>
-                  <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Individual course breakdown</div>
-                  <div style="display:flex; align-items:center; gap:16px; height:240px; width:100%; box-sizing:border-box;">
-                    <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
-                      <canvas id="courseDonut" class="chart-canvas" aria-label="Course distribution doughnut chart" style="max-width:160px; max-height:160px;"></canvas>
-                    </div>
-                    <div id="courseLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
-                      <!-- legend inserted by JS -->
-                    </div>
-                  </div>
-                </div>
-              </div>
-             </div>
-        </div>
+        
 
         <!-- ===== Settings View (Counselor) ===== -->
         <div class="view hidden" id="view-settings" data-view="settings">
@@ -709,5 +621,162 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="../JS/reports_new.js"></script>
+  <!-- Appointment Details Modal -->
+  <div id="appointmentDetailsModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:2000;padding:24px; box-sizing:border-box;">
+    <div class="modal-content" style="width:100%; max-width:720px; background:#fff; border-radius:10px; padding:1rem; box-shadow:0 20px 60px rgba(0,0,0,0.28); box-sizing:border-box;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:2px solid #e5e7eb; padding-bottom:1rem;">
+        <h3 style="margin:0; font-size:1.25rem; color:#1f2937;">Appointment Details</h3>
+        <button class="close-modal" id="closeAppointmentModalBtn" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#6b7280;">&times;</button>
+      </div>
+      <div class="modal-body" style="margin-bottom:1rem;">
+        <div class="details-grid" style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Student Name:</label>
+            <div id="modalStudentName" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Student ID:</label>
+            <div id="modalStudentId" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Course & Year:</label>
+            <div id="modalCourseYear" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Contact:</label>
+            <div id="modalContact" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Email:</label>
+            <div id="modalEmail" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Date & Time:</label>
+            <div id="modalDateTime" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Urgency:</label>
+            <div id="modalUrgency" style="font-weight:600; color:#1f2937;">-</div>
+          </div>
+          <div class="detail-group" style="display:flex; flex-direction:column; grid-column: 1 / -1;">
+            <label style="font-size:0.85rem; color:#6b7280; font-weight:500; margin-bottom:0.5rem;">Reason for Counseling:</label>
+            <div id="modalReason" class="reason-text" style="font-weight:600; color:#1f2937; line-height:1.4; white-space:pre-wrap; word-break:break-word;">-</div>
+          </div>
+        </div>
+
+          <!-- (referrals view moved to main views area) -->
+      </div>
+      <div class="modal-footer" style="display:flex; gap:0.5rem; border-top:2px solid #e5e7eb; padding-top:0.75rem;">
+        <button class="btn ghost" id="closeAppointmentModalBtn2" style="flex:1; padding:0.6rem; background:#fff; color:#0a2342; border:2px solid #0a2342; border-radius:8px; cursor:pointer; font-weight:600;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reschedule Appointment Modal -->
+  <div id="rescheduleModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000;">
+    <div class="modal-content" style="width:100%; max-width:500px; background:#fff; border-radius:12px; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
+      <div class="modal-header" style="margin-bottom:1.5rem; border-bottom:2px solid #e5e7eb; padding-bottom:1rem;">
+        <h3 style="margin:0; font-size:1.25rem; color:#1f2937;">Reschedule Appointment</h3>
+      </div>
+      <div class="modal-body" style="margin-bottom:2rem;">
+        <!-- Student Info -->
+        <div style="background:#f0f9ff; padding:1rem; border-radius:8px; margin-bottom:1.5rem; border-left:4px solid #3b82f6;">
+          <p id="rescheduleStudentInfo" style="margin:0; color:#1f2937; font-weight:600;"></p>
+        </div>
+        
+        <!-- Date Selection -->
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block; font-weight:600; color:#0a2342; margin-bottom:0.75rem;">Select New Date</label>
+          <input type="date" id="rescheduleDate" style="width:100%; padding:0.75rem; border:2px solid #e5e7eb; border-radius:8px; font-size:1rem;" />
+        </div>
+        
+        <!-- Available Time Slots -->
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block; font-weight:600; color:#0a2342; margin-bottom:0.75rem;">Available Time Slots</label>
+          
+          <!-- Morning Slots -->
+          <div style="margin-bottom:1.5rem;">
+            <p style="color:#6b7280; font-size:0.9rem; margin:0 0 0.75rem 0; font-weight:600;">Morning (9:00 AM - 11:00 AM)</p>
+            <div id="morningSlots" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;"></div>
+          </div>
+          
+          <!-- Afternoon Slots -->
+          <div style="margin-bottom:1.5rem;">
+            <p style="color:#6b7280; font-size:0.9rem; margin:0 0 0.75rem 0; font-weight:600;">Afternoon (2:00 PM - 4:00 PM)</p>
+            <div id="afternoonSlots" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem;"></div>
+          </div>
+          
+          <p style="color:#6b7280; font-size:0.85rem; margin:1rem 0 0 0; font-style:italic;">Click a time slot to select. Booked slots appear disabled.</p>
+        </div>
+        
+        <!-- Selected Time Display -->
+        <div id="selectedTimeDisplay" style="padding:0.75rem; background:#f0f9ff; border-radius:8px; border-left:4px solid #3b82f6; margin-bottom:1rem; display:none;">
+          <p style="margin:0; color:#0a2342; font-weight:600;">Selected Time: <span id="selectedTimeText" style="color:#3b82f6;">-</span></p>
+        </div>
+        
+        <!-- Availability Check -->
+        <div id="availabilityWarning" style="display:none; padding:1rem; background:#fef3c7; border-radius:8px; border-left:4px solid #f59e0b; margin-bottom:1rem;">
+          <p id="availabilityMessage" style="margin:0; color:#92400e; font-weight:600;"></p>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #e5e7eb; padding-top:1rem;">
+        <button id="rescheduleConfirmBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#f59e0b; color:#fff; font-weight:600; border:none;">⟳ Reschedule</button>
+        <button id="rescheduleCancelBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; border:2px solid #e5e7eb; background:#fff; color:#0a2342; font-weight:600;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complete Appointment Modal -->
+  <div id="completeModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000;">
+    <div class="modal-content" style="width:100%; max-width:420px; background:#fff; border-radius:12px; padding:1.5rem; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div class="modal-header" style="margin-bottom:1rem; border-bottom:2px solid #e5e7eb; padding-bottom:0.5rem;">
+        <h3 style="margin:0; font-size:1.15rem; color:#1f2937;">Confirm Completion</h3>
+      </div>
+      <div class="modal-body" style="margin-bottom:1rem;">
+        <p id="completeMessage" style="color:#6b7280; font-size:0.95rem; margin:0;">Are you sure you want to mark this appointment as completed?</p>
+        <div id="completeDetails" style="margin-top:0.75rem; padding:0.75rem; background:#f9fafb; border-radius:8px; border-left:4px solid #10b981;">
+          <p id="completeStudentInfo" style="margin:0 0 0.25rem 0; color:#0a2342; font-weight:600;"></p>
+          <p id="completeDateInfo" style="margin:0; color:#6b7280; font-size:0.9rem;"></p>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #eef2f7; padding-top:0.75rem;">
+        <button id="completeConfirmBtn" class="btn" style="flex:1; padding:0.6rem; border-radius:8px; cursor:pointer; background:#10b981; color:#fff; font-weight:600; border:none;">✓ Mark Completed</button>
+        <button id="completeCancelBtn" class="btn" style="flex:1; padding:0.6rem; border-radius:8px; cursor:pointer; border:2px solid #e5e7eb; background:#fff; color:#0a2342; font-weight:600;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mark Appointment Completion Modal -->
+  <div id="markCompletionModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000;">
+    <div class="modal-content" style="background:#fff; border-radius:12px; padding:2rem; max-width:500px; width:90%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+      <h2 style="margin:0 0 0.5rem 0; color:#0a2342; font-size:1.5rem;">Mark Appointment</h2>
+      <p style="margin:0 0 1.5rem 0; color:#6b7280; font-size:0.95rem;">The appointment time has ended. Please mark the status.</p>
+      
+      <!-- Appointment Info -->
+      <div style="background:#f9fafb; padding:1.25rem; border-radius:8px; margin-bottom:1.5rem; border-left:4px solid #3b82f6;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:0.9rem;">
+          <div>
+            <div style="color:#6b7280; font-weight:600; margin-bottom:0.25rem;">Student</div>
+            <div id="completionStudentName" style="color:#0a2342; font-weight:600;"></div>
+          </div>
+          <div>
+            <div style="color:#6b7280; font-weight:600; margin-bottom:0.25rem;">Date & Time</div>
+            <div id="completionDateTime" style="color:#0a2342; font-weight:600;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:1rem; padding-top:1rem; border-top:2px solid #e5e7eb;">
+        <button id="markCompletedBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#10b981; color:#fff; font-weight:600; border:none; transition:all 0.2s ease;">
+          ✓ Completed
+        </button>
+        <button id="markMissedBtn" class="btn" style="flex:1; padding:0.75rem; border-radius:8px; cursor:pointer; background:#ef4444; color:#fff; font-weight:600; border:none; transition:all 0.2s ease;">
+          ✗ Missed
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
+

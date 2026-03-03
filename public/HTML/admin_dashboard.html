@@ -48,7 +48,6 @@
         <button data-view="appointments" class="nav-item"><span class="icon">📅</span>Appointments</button>
         <button data-view="students" class="nav-item"><span class="icon">🎓</span>Students</button>
         <button data-view="referrals" class="nav-item"><span class="icon">🤝</span>Peer Referrals</button>
-        <button data-view="reports" class="nav-item"><span class="icon">📈</span>Reports</button>
         <button data-view="settings" class="nav-item"><span class="icon">⚙️</span>Settings</button>
         <!-- Activity Logs removed -->
       </nav>
@@ -998,6 +997,13 @@
       <div id="approveDetails" style="margin-top:1rem; padding:1rem; background:#f0f9ff; border-radius:8px; border-left:4px solid #3b82f6;">
         <p id="approveStudentInfo" style="margin:0 0 0.5rem 0; color:#1f2937; font-weight:600;"></p>
         <p id="approveDateInfo" style="margin:0; color:#6b7280; font-size:0.9rem;"></p>
+      </div>
+      <!-- Assign counselor -->
+      <div id="approveAssign" style="margin-top:1rem;">
+        <label for="approveCounselorSelect" style="display:block; font-weight:600; color:#0a2342; margin-bottom:0.5rem;">Assign Counselor</label>
+        <select id="approveCounselorSelect" style="width:100%; padding:0.6rem; border:1px solid #e5e7eb; border-radius:8px;">
+          <option value="">(No change)</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer" style="display:flex; gap:0.75rem; border-top:2px solid #e5e7eb; padding-top:1rem;">

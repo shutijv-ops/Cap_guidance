@@ -295,13 +295,31 @@ async function initReports() {
 
   console.log('[REPORTS] Canvases found');
 
+  // Detect current user to scope reports for counselors
+  let counselorFilter = null;
+  try {
+    const meRes = await fetch('/api/me', { credentials: 'include' });
+    if (meRes && meRes.ok) {
+      const me = await meRes.json().catch(() => null);
+      if (me && me.user && String((me.user.role || '')).toLowerCase().includes('counselor')) {
+        counselorFilter = me.user.username || null;
+        console.log('[REPORTS] Running reports for counselor:', counselorFilter);
+      }
+    }
+  } catch (e) {
+    console.warn('[REPORTS] Could not determine current user:', e);
+  }
+
   // Fetch data
   let months = getMonths();
   let appointments = [];
   
   try {
     console.log('[REPORTS] Fetching monthly data...');
-    const res = await fetch('/api/reports/monthly?year=' + new Date().getFullYear());
+    const year = new Date().getFullYear();
+    const q = new URLSearchParams({ year: String(year) });
+    if (counselorFilter) q.set('counselor', counselorFilter);
+    const res = await fetch('/api/reports/monthly?' + q.toString(), { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       if (data.months) {
@@ -316,7 +334,7 @@ async function initReports() {
   // Fetch appointments for distribution charts
   try {
     console.log('[REPORTS] Fetching appointments...');
-    const res = await fetch('/api/appointments');
+    const res = await fetch('/api/appointments', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       appointments = data.appointments || [];
@@ -365,7 +383,7 @@ async function initReports() {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         interaction: {
           intersect: false,
           mode: 'index'
@@ -449,7 +467,7 @@ async function initReports() {
       data: { labels, datasets },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
         interaction: {
           intersect: false,
           mode: 'index'
@@ -552,6 +570,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     console.log('[REPORTS] Reports button listener attached');
   }
+
+  // If the reports canvases are embedded directly (e.g., counselor dashboard), auto-init
+  try {
+    const autoBar = document.getElementById('monthlyBarChart');
+    const autoLine = document.getElementById('urgencyLineChart');
+    if (autoBar && autoLine) {
+      console.log('[REPORTS] Embedded canvases detected — auto-initializing reports');
+      setTimeout(() => {
+        try { initReports(); } catch (e) { console.error('[REPORTS] initReports failed on auto-init', e); }
+      }, 120);
+    }
+  } catch (e) { console.warn('[REPORTS] auto-init detection failed', e); }
 });
 
 // Export

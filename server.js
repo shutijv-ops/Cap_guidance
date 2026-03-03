@@ -174,6 +174,7 @@ const appointmentSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   date: { type: String, required: true }, // stored as yyyy-mm-dd
   time: { type: String, required: true },
+  counselor: { type: String, default: null },
   refNumber: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
   status: { type: String, default: 'Pending', enum: ['Pending', 'Booked', 'Cancelled', 'Completed'] }
@@ -2003,10 +2004,21 @@ app.put('/api/appointments/:ref', async (req, res) => {
     // record activity log(s) for appointment management (approve, reschedule, complete, assign counselor)
     (async () => {
       try {
-        // Determine actor: prefer admin cookie, fallback to provided actor or student id
-        const cookie = req.headers.cookie || '';
-        const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
-        const actor = isAdmin ? (DEFAULT_COUNSELOR.username || 'admin') : (body.actor || appt.studentid || appt.email || 'system');
+            // Determine actor: prefer admin cookie, then counselor cookie, fallback to provided actor or student id
+            const cookie = req.headers.cookie || '';
+            const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+            const isAdmin = parts.includes('admin_auth=1') || parts.some(p => p.startsWith('admin_auth='));
+            const isCounselor = parts.includes('counselor_auth=1') || parts.some(p => p.startsWith('counselor_auth='));
+            let actor = null;
+            if (isAdmin) {
+              const adminUserPart = parts.find(p => p.startsWith('admin_user='));
+              actor = adminUserPart ? decodeURIComponent(adminUserPart.split('=')[1]) : (DEFAULT_COUNSELOR.username || 'admin');
+            } else if (isCounselor) {
+              const cUserPart = parts.find(p => p.startsWith('counselor_user='));
+              actor = cUserPart ? decodeURIComponent(cUserPart.split('=')[1]) : (body.actor || appt.studentid || appt.email || 'counselor');
+            } else {
+              actor = body.actor || appt.studentid || appt.email || 'system';
+            }
 
         const priorStatus = (prior && prior.status || '').toLowerCase();
         const newStatus = (appt.status || '').toLowerCase();
@@ -2065,7 +2077,26 @@ app.put('/api/appointments/:ref', async (req, res) => {
 // Optional: list appointments (admin)
 app.get('/api/appointments', async (req, res) => {
   try{
-    const docs = await Appointment.find().sort({ createdAt: -1 }).limit(200).lean();
+    // Respect caller role: if a counselor is making the request, only return appointments assigned to them.
+    const cookieHeader = req.headers.cookie || '';
+    const cookies = {};
+    cookieHeader.split(';').map(s => s.trim()).forEach(part => { const kv = part.split('='); if (kv[0]) cookies[kv[0]] = kv.slice(1).join('='); });
+    const isCounselor = Object.keys(cookies).includes('counselor_auth') && cookies['counselor_auth'] === '1';
+
+    // Allow admin to optionally filter by counselor via query param, but counselors are restricted to their own username.
+    let q = {};
+    if (isCounselor) {
+      const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+      if (counselorUsername) q.counselor = counselorUsername;
+      else q = { counselor: null }; // no username — return none
+    } else {
+      // Admin or unauthenticated: allow optional filter ?counselor=username
+      if (req.query && req.query.counselor) {
+        q.counselor = req.query.counselor;
+      }
+    }
+
+    const docs = await Appointment.find(q).sort({ createdAt: -1 }).limit(200).lean();
     res.json({ appointments: docs });
   }catch(err){
     console.error(err);
