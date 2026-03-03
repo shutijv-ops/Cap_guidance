@@ -968,9 +968,24 @@ app.post('/api/admin/update-account', async (req, res) => {
 // Get counselor profile
 app.get('/api/counselor/profile', async (req, res) => {
   try {
-    // Get counselor ID from session/cookie or request body
-    // For now, we'll get the first counselor (the logged-in one)
-    const counselor = await Counselor.findOne().select('-password');
+    // Prefer identifying the counselor from the counselor_user cookie (set at login)
+    const cookieHeader = req.headers.cookie || '';
+    const cookies = cookieHeader.split(';').map(s => s.trim()).filter(Boolean).reduce((acc, cur) => {
+      const idx = cur.indexOf('=');
+      if (idx === -1) return acc;
+      const k = cur.slice(0, idx).trim();
+      const v = cur.slice(idx + 1).trim();
+      acc[k] = v;
+      return acc;
+    }, {});
+    const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+
+    let counselor = null;
+    if (counselorUsername) {
+      counselor = await Counselor.findOne({ username: counselorUsername }).select('-password');
+    }
+    // Fallback: return first counselor if cookie missing or lookup fails
+    if (!counselor) counselor = await Counselor.findOne().select('-password');
     
     if (!counselor) {
       return res.status(404).json({ success: false, error: 'Counselor not found' });
@@ -1005,9 +1020,21 @@ app.post('/api/counselor/update-profile', async (req, res) => {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
     }
 
-    // Update the first counselor (the logged-in one)
+    // Identify counselor by cookie if available
+    const cookieHeader = req.headers.cookie || '';
+    const cookies = cookieHeader.split(';').map(s => s.trim()).filter(Boolean).reduce((acc, cur) => {
+      const idx = cur.indexOf('=');
+      if (idx === -1) return acc;
+      const k = cur.slice(0, idx).trim();
+      const v = cur.slice(idx + 1).trim();
+      acc[k] = v;
+      return acc;
+    }, {});
+    const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+
+    const filter = counselorUsername ? { username: counselorUsername } : {};
     const counselor = await Counselor.findOneAndUpdate(
-      {},
+      filter,
       {
         title: title || 'Ms.',
         firstName,
@@ -1038,6 +1065,96 @@ app.post('/api/counselor/update-profile', async (req, res) => {
   } catch (error) {
     console.error('Error updating counselor profile:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Change counselor username (requires current counselor password)
+app.post('/api/counselor/change-username', async (req, res) => {
+  try {
+    const { oldPassword, newUsername } = req.body;
+    if (!oldPassword || !newUsername) return res.status(400).json({ error: 'oldPassword and newUsername required' });
+
+    const cookieHeader = req.headers.cookie || '';
+    const cookies = cookieHeader.split(';').map(s => s.trim()).filter(Boolean).reduce((acc, cur) => {
+      const idx = cur.indexOf('=');
+      if (idx === -1) return acc;
+      const k = cur.slice(0, idx).trim();
+      const v = cur.slice(idx + 1).trim();
+      acc[k] = v;
+      return acc;
+    }, {});
+    const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+    if (!counselorUsername) return res.status(401).json({ error: 'Not authenticated' });
+
+    const counselor = await Counselor.findOne({ username: counselorUsername });
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+
+    // Verify password (bcrypt or plain)
+    const ok = (async () => {
+      try {
+        if (typeof counselor.password === 'string' && counselor.password.startsWith('$2')) return await bcrypt.compare(oldPassword, counselor.password);
+        return oldPassword === counselor.password;
+      } catch (e) { return false; }
+    })();
+
+    if (!(await ok)) return res.status(401).json({ error: 'Not authenticated or current password is incorrect' });
+
+    // Update username (ensure unique)
+    const exists = await Counselor.findOne({ username: newUsername });
+    if (exists) return res.status(400).json({ error: 'Username already taken' });
+
+    counselor.username = newUsername;
+    await counselor.save();
+
+    // Set cookie so client sees updated username
+    res.setHeader('Set-Cookie', `counselor_user=${encodeURIComponent(newUsername)}; Path=/; SameSite=Lax`);
+
+    return res.json({ ok: true, message: 'Username changed', username: newUsername });
+  } catch (error) {
+    console.error('Error changing counselor username:', error);
+    return res.status(500).json({ error: 'Failed to change username' });
+  }
+});
+
+// Change counselor password
+app.post('/api/counselor/change-password', async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) return res.status(400).json({ error: 'oldPassword and newPassword required' });
+
+    const cookieHeader = req.headers.cookie || '';
+    const cookies = cookieHeader.split(';').map(s => s.trim()).filter(Boolean).reduce((acc, cur) => {
+      const idx = cur.indexOf('=');
+      if (idx === -1) return acc;
+      const k = cur.slice(0, idx).trim();
+      const v = cur.slice(idx + 1).trim();
+      acc[k] = v;
+      return acc;
+    }, {});
+    const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+    if (!counselorUsername) return res.status(401).json({ error: 'Not authenticated' });
+
+    const counselor = await Counselor.findOne({ username: counselorUsername });
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+
+    // Verify current password
+    let ok = false;
+    try {
+      if (typeof counselor.password === 'string' && counselor.password.startsWith('$2')) ok = await bcrypt.compare(oldPassword, counselor.password);
+      else ok = oldPassword === counselor.password;
+    } catch (e) { ok = false; }
+
+    if (!ok) return res.status(401).json({ error: 'Not authenticated or current password is incorrect' });
+
+    // Update password (store bcrypt hash)
+    const hashed = await bcrypt.hash(newPassword, 10);
+    counselor.password = hashed;
+    await counselor.save();
+
+    return res.json({ ok: true, message: 'Password changed' });
+  } catch (error) {
+    console.error('Error changing counselor password:', error);
+    return res.status(500).json({ error: 'Failed to change password' });
   }
 });
 
