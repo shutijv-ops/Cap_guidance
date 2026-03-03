@@ -2069,9 +2069,47 @@ app.get('/api/counselor/current', async (req, res) => {
     const counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
     if (counselor) return res.json({ counselor });
 
-    // If there's no counselor record for the default username, return a
-    // non-persistent object for UI display but do not persist admin data
-    // into the `counselors` collection.
+    // If there's no counselor record for the default username, but the
+    // request is coming from an authenticated admin, create (or upsert)
+    // a persistent counselor record representing the admin so leave
+    // dates and related features work as expected.
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
+    if (isAdmin) {
+      try {
+        const username = adminUsername || DEFAULT_COUNSELOR.username;
+        const email = adminEmail || DEFAULT_COUNSELOR.email || `${username}@example.com`;
+        const title = DEFAULT_COUNSELOR.title || 'Ms.';
+        const firstName = adminFirstName || DEFAULT_COUNSELOR.name.split(' ')[0] || 'Kristine';
+        const middleName = adminMiddleName || '';
+        const lastName = adminLastName || DEFAULT_COUNSELOR.name.split(' ').slice(-1)[0] || 'Lopez';
+        const pwd = adminPassword || DEFAULT_COUNSELOR.password || 'admin123';
+
+        const doc = await Counselor.findOneAndUpdate(
+          { username },
+          {
+            $setOnInsert: {
+              title,
+              firstName,
+              middleName,
+              lastName,
+              email,
+              username,
+              password: pwd,
+              role: 'Administrator',
+              leaveDates: []
+            }
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        return res.json({ counselor: doc, persisted: true });
+      } catch (e) {
+        console.warn('Failed to create persistent counselor for admin:', e);
+        // fallthrough to preview
+      }
+    }
+
+    // If not admin or creation failed, return a non-persistent preview object
     const preview = {
       title: 'Ms.',
       firstName: 'Kristine',
