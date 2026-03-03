@@ -1291,6 +1291,17 @@ app.get('/api/counselors', async (req, res) => {
 app.post('/api/counselors', async (req, res) => {
   try {
     const { title, firstName, middleName, lastName, email, username, password, role } = req.body;
+    // Prevent creating a counselor record that matches the admin account
+    try {
+      if (username) {
+        const existingAdmin = await Admin.findOne({ $or: [ { username: username }, { email: email } ] }).lean();
+        if (existingAdmin) {
+          return res.status(403).json({ error: 'Cannot create counselor with admin username/email' });
+        }
+      }
+    } catch (chkErr) {
+      console.warn('Admin check failed during counselor create:', chkErr);
+    }
     const counselor = new Counselor({
       title, firstName, middleName, lastName, email, username, password, role
     });
@@ -1353,10 +1364,30 @@ app.get('/api/counselor', (req, res) => {
   });
 });
 
-app.get('/api/admin/check', (req, res) => {
-  const cookie = req.headers.cookie || '';
-  const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
-  if (isAdmin) {
+app.get('/api/admin/check', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
+    if (!isAdmin) return res.status(401).json({ ok: false });
+
+    // Prefer persisted Admin document from DB when available
+    try {
+      const adminDoc = await Admin.findOne({}).lean();
+      if (adminDoc) {
+        return res.json({ ok: true, user: {
+          username: adminDoc.username || adminUsername || DEFAULT_COUNSELOR.username,
+          firstName: adminDoc.firstName || '',
+          middleName: adminDoc.middleName || '',
+          lastName: adminDoc.lastName || '',
+          email: adminDoc.email || '',
+          role: adminDoc.role || 'Administrator'
+        }});
+      }
+    } catch (dbErr) {
+      console.warn('Error reading Admin from DB in /api/admin/check:', dbErr);
+    }
+
+    // Fallback to in-memory admin values if no DB record
     return res.json({ ok: true, user: {
       username: adminUsername || DEFAULT_COUNSELOR.username,
       firstName: adminFirstName || '',
@@ -1364,8 +1395,10 @@ app.get('/api/admin/check', (req, res) => {
       lastName: adminLastName || '',
       email: adminEmail || ''
     }});
+  } catch (e) {
+    console.error('/api/admin/check error', e);
+    return res.status(500).json({ ok: false });
   }
-  return res.status(401).json({ ok: false });
 });
 
 // Who am I — return user info for admin or counselor based on cookies
@@ -2385,44 +2418,24 @@ app.get('/api/counselor/current', async (req, res) => {
     const counselor = await Counselor.findOne({ username: DEFAULT_COUNSELOR.username });
     if (counselor) return res.json({ counselor });
 
-    // If there's no counselor record for the default username, but the
-    // request is coming from an authenticated admin, create (or upsert)
-    // a persistent counselor record representing the admin so leave
-    // dates and related features work as expected.
+    // If there's no counselor record for the default username, do NOT
+    // create or upsert a Counselor document for the admin account. Admins
+    // are authoritative in the `admins` collection and should not be
+    // duplicated into `counselors`.
     const cookie = req.headers.cookie || '';
     const isAdmin = cookie.split(';').map(s => s.trim()).includes('admin_auth=1');
     if (isAdmin) {
-      try {
-        const username = adminUsername || DEFAULT_COUNSELOR.username;
-        const email = adminEmail || DEFAULT_COUNSELOR.email || `${username}@example.com`;
-        const title = DEFAULT_COUNSELOR.title || 'Ms.';
-        const firstName = adminFirstName || DEFAULT_COUNSELOR.name.split(' ')[0] || 'Kristine';
-        const middleName = adminMiddleName || '';
-        const lastName = adminLastName || DEFAULT_COUNSELOR.name.split(' ').slice(-1)[0] || 'Lopez';
-        const pwd = adminPassword || DEFAULT_COUNSELOR.password || 'admin123';
-
-        const doc = await Counselor.findOneAndUpdate(
-          { username },
-          {
-            $setOnInsert: {
-              title,
-              firstName,
-              middleName,
-              lastName,
-              email,
-              username,
-              password: pwd,
-              role: 'Administrator',
-              leaveDates: []
-            }
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        return res.json({ counselor: doc, persisted: true });
-      } catch (e) {
-        console.warn('Failed to create persistent counselor for admin:', e);
-        // fallthrough to preview
-      }
+      // Return a non-persistent preview object instead of persisting
+      // a counselor document for the admin.
+      const preview = {
+        title: DEFAULT_COUNSELOR.title || 'Ms.',
+        firstName: adminFirstName || DEFAULT_COUNSELOR.name.split(' ')[0] || 'Kristine',
+        middleName: adminMiddleName || '',
+        lastName: adminLastName || DEFAULT_COUNSELOR.name.split(' ').slice(-1)[0] || 'Lopez',
+        email: adminEmail || DEFAULT_COUNSELOR.email || `${adminUsername || DEFAULT_COUNSELOR.username}@example.com`,
+        username: adminUsername || DEFAULT_COUNSELOR.username
+      };
+      return res.json({ counselor: preview, persisted: false });
     }
 
     // If not admin or creation failed, return a non-persistent preview object
