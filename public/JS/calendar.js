@@ -97,9 +97,42 @@ class AppointmentCalendar {
           color = '#10b981'; // green
           break;
       }
+      // resolve counselor display name if available (look in global sources)
+      let counselorName = '';
+      try {
+        const id = appointment.counselor || appointment.assignedTo || '';
+        const sources = [];
+        if (typeof counselors !== 'undefined' && Array.isArray(counselors)) sources.push(...counselors);
+        if (typeof counselorsList !== 'undefined' && Array.isArray(counselorsList)) sources.push(...counselorsList);
+        if (sources.length) {
+          const found = sources.find(c => {
+            try {
+              if (c.username && String(c.username).toLowerCase() === String(id).toLowerCase()) return true;
+              if (c.email && String(c.email).toLowerCase() === String(id).toLowerCase()) return true;
+              if (c.name && String(c.name).toLowerCase() === String(id).toLowerCase()) return true;
+              const label = ((c.firstName || '') + ' ' + (c.lastName || '')).trim();
+              if (label && label.toLowerCase() === String(id).toLowerCase()) return true;
+            } catch (e) {}
+            return false;
+          });
+          if (found) counselorName = found.name || ((found.firstName || '') + ' ' + (found.lastName || '')).trim() || found.username || found.email || '';
+        }
+      } catch (e) { /* ignore */ }
+      // If no resolver match but appointment has a counselor field, show it raw
+      if (!counselorName && appointment.counselor) {
+        try { counselorName = String(appointment.counselor).trim(); } catch (e) { /* ignore */ }
+      }
+
+      // Debug log to help diagnose missing names/counselors
+      try { console.log('[CAL] formatAppointment', { id: appointment._id || appointment.id, name, time, counselor: appointment.counselor, resolvedCounselor: counselorName, urgency: appointment.urgency }); } catch (e) {}
+
       return `
-        <div class="calendar-event ${status}" title="${name} - ${time}">
-          ${time} <span style="color:${color};font-weight:bold;">${name}</span>
+        <div class="calendar-event ${status}" title="${name} - ${time}" style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <strong style="font-size:0.85rem; color:inherit;">${time}</strong>
+            ${name ? `<span style="color:${color}; font-weight:700; font-size:0.85rem;">${name}</span>` : ''}
+          </div>
+          ${counselorName ? `<div class="calendar-counselor" style="font-size:0.75rem; color:#374151;">with ${counselorName}</div>` : ''}
         </div>
       `;
   }
