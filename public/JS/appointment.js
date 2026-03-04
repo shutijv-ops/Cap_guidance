@@ -579,12 +579,24 @@ function setProgress(current){
 
   // Normalize frontend time arrays for reliable comparison
   const normalize = t => t.trim().toLowerCase();
-    const makeSlot = (time, container) => {
+  // build a set of blocked times including approved/booked slots and leave-specific times
+  const bookedTimesSet = new Set((booked || []).map(normalizeTo24).filter(Boolean));
+  const leaveTimesSet = new Set((blockedLeaveTimesByDate[key] && Array.from(blockedLeaveTimesByDate[key])) || []);
+  const combinedBlocked = new Set([...bookedTimesSet, ...leaveTimesSet]);
+
+  const isFullDayLeave = blockedLeaveDatesFullDay.has(key);
+
+  const makeSlot = (time, container) => {
       const el = document.createElement('div');
       el.className = 'time-slot';
       el.textContent = time;
-      if(booked.includes(normalize(time))){
+      const t24 = normalizeTo24(time);
+      if (isFullDayLeave) {
         el.classList.add('booked');
+        el.title = 'Counselor on leave (full day)';
+      } else if (combinedBlocked.has(t24)){
+        el.classList.add('booked');
+        el.title = 'Time blocked (appointment or leave)';
       } else {
         el.addEventListener('click', ()=> {
           Array.from(container.querySelectorAll('.time-slot')).forEach(x => x.classList.remove('selected'));
@@ -619,15 +631,49 @@ function setProgress(current){
     if(!bookedSlotsByDate[key].includes(timeStr)) bookedSlotsByDate[key].push(timeStr);
   }
 
+  // map full-day leaves and time-specific leaves
+  let blockedLeaveDatesFullDay = new Set();
+  let blockedLeaveTimesByDate = {};
+
+  function normalizeTo24(timeStr) {
+    if (!timeStr) return '';
+    const s = String(timeStr).trim().toLowerCase().replace(/\s+/g,'');
+    const m = s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/i);
+    if (!m) return '';
+    let h = parseInt(m[1],10);
+    let min = m[2] || '00';
+    const ampm = m[3] ? m[3].toLowerCase() : null;
+    if (ampm) {
+      if (ampm === 'pm' && h !== 12) h += 12;
+      if (ampm === 'am' && h === 12) h = 0;
+    }
+    return (h < 10 ? '0' + h : String(h)) + ':' + (min.padStart ? min.padStart(2,'0') : ('0' + min).slice(-2));
+  }
+
   async function fetchLeaveDates(){
     try{
       const res = await fetch('/api/leaves');
       if(!res.ok) throw new Error('Failed to fetch leaves');
       const j = await res.json();
-      blockedLeaveDates = new Set((j.dates || []).map(x => String(x).trim()));
+      blockedLeaveDatesFullDay = new Set();
+      blockedLeaveTimesByDate = {};
+      const details = j.details || {};
+      Object.keys(details).forEach(date => {
+        const arr = details[date] || [];
+        arr.forEach(item => {
+          const t = item && item.time ? normalizeTo24(item.time) : null;
+          if (!t) {
+            blockedLeaveDatesFullDay.add(date);
+          } else {
+            blockedLeaveTimesByDate[date] = blockedLeaveTimesByDate[date] || new Set();
+            blockedLeaveTimesByDate[date].add(t);
+          }
+        });
+      });
     }catch(err){
       console.warn('Could not fetch leave dates:', err);
-      blockedLeaveDates = new Set();
+      blockedLeaveDatesFullDay = new Set();
+      blockedLeaveTimesByDate = {};
     }
   }
 

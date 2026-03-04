@@ -832,8 +832,12 @@
               <h3 style="color:#0a2342; margin-top:0; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; font-size:1.1rem;">📅 Manage Leave Dates</h3>
               <p style="color:#6b7280; margin:0 0 0.75rem 0; font-size:0.95rem;">Mark dates when counselors will be on leave. Blocked dates will be unavailable to students when booking.</p>
               <div style="display:flex; gap:8px; align-items:center; margin-bottom:0.75rem;">
-                <input type="date" id="leaveDateInput" style="flex:1; padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;" />
+                <input type="date" id="leaveDateInput" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;" />
+                <select id="leaveTimeSelect" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;">
+                  <option value="">Full day</option>
+                </select>
                 <button id="addLeaveBtn" class="btn" style="padding:0.6rem 0.9rem; background:#059669; color:#fff; border:none; border-radius:6px; cursor:pointer;">Add</button>
+                <button id="deleteSelectedLeavesBtn" class="btn ghost" style="padding:0.6rem 0.9rem; margin-left:6px; border-radius:6px;">Delete selected</button>
               </div>
               <ul id="leaveList" style="list-style:none; padding:0; margin:0; display:block; gap:6px;">
                 <!-- Leave dates will be rendered here -->

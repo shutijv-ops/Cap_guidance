@@ -7,6 +7,7 @@ const Student = require('./models/students');
 const Referral = require('./models/referrals');
 const Setting = require('./models/settings');
 const Admin = require('./models/admins');
+const Leave = require('./models/leaves');
 const bcrypt = require('bcryptjs');
 const sgMail = require('@sendgrid/mail');
 const socketIO = require('socket.io');
@@ -253,13 +254,17 @@ mongoose.connect(MONGODB_URI, {
     }
 
     // Remove any counselor documents that appear to be the admin (avoid admin data in counselors collection)
+    // NOTE: do NOT remove counselor records that contain persisted leaveDates — preserve those so leave marks survive restarts
     try {
-      const removeFilter = {};
-      if (adminUsername) removeFilter.username = adminUsername;
-      if (adminEmail) removeFilter.email = adminEmail;
-      if (Object.keys(removeFilter).length > 0) {
-        const delRes = await Counselor.deleteMany({ $or: [ ...(removeFilter.username ? [{ username: removeFilter.username }] : []), ...(removeFilter.email ? [{ email: removeFilter.email }] : []) ] });
-        if (delRes && delRes.deletedCount) console.log('[ADMIN] Removed admin-like documents from counselors collection:', delRes.deletedCount);
+      const adminConditions = [];
+      if (adminUsername) adminConditions.push({ username: adminUsername });
+      if (adminEmail) adminConditions.push({ email: adminEmail });
+
+      if (adminConditions.length > 0) {
+        // Only delete admin-like documents that do NOT have leaveDates stored.
+        const delFilter = { $and: [ { $or: adminConditions }, { $or: [ { leaveDates: { $exists: false } }, { leaveDates: { $size: 0 } } ] } ] };
+        const delRes = await Counselor.deleteMany(delFilter);
+        if (delRes && delRes.deletedCount) console.log('[ADMIN] Removed admin-like documents from counselors collection (no leaveDates):', delRes.deletedCount);
       }
     } catch (e) {
       console.warn('[ADMIN] Failed to clean counselors collection', e);
@@ -2359,15 +2364,60 @@ app.delete('/api/notifications', async (req, res) => {
 // Return all leave dates (summary) and details per counselor
 app.get('/api/leaves', async (req, res) => {
   try {
-    const withLeaves = await Counselor.find({ leaveDates: { $exists: true, $ne: [] } }).lean();
+    // Query by username/email to return raw Leave docs for a specific identifier
+    const { username: qUser, email: qEmail } = req.query || {};
+    if (qUser || qEmail) {
+      const filter = {};
+      if (qUser) filter.username = qUser;
+      if (qEmail) filter.email = qEmail;
+      const docs = await Leave.find(filter).lean();
+      return res.json({ leaves: docs });
+    }
+    // Load all Leave documents and counselors for name resolution
+    const leaves = await Leave.find({}).populate('counselor').lean();
+    const counselors = await Counselor.find({}).lean();
+    const byId = {};
+    const byUsername = {};
+    const byEmail = {};
+    counselors.forEach(c => {
+      byId[String(c._id)] = c;
+      if (c.username) byUsername[c.username] = c;
+      if (c.email) byEmail[c.email] = c;
+    });
+
     const map = {};
+
+    // Entries from Leaves collection -> store objects { time, name }
+    leaves.forEach(l => {
+      const d = l.date;
+      map[d] = map[d] || [];
+      let name = '';
+      if (l.counselor) {
+        const c = l.counselor;
+        name = c.title ? `${c.title} ${c.firstName} ${c.lastName}` : `${c.firstName} ${c.lastName}`;
+      } else if (l.username && byUsername[l.username]) {
+        const c = byUsername[l.username];
+        name = c.title ? `${c.title} ${c.firstName} ${c.lastName}` : `${c.firstName} ${c.lastName}`;
+      } else if (l.email && byEmail[l.email]) {
+        const c = byEmail[l.email];
+        name = c.title ? `${c.title} ${c.firstName} ${c.lastName}` : `${c.firstName} ${c.lastName}`;
+      } else {
+        name = l.username || l.email || 'Unknown';
+      }
+      map[d].push({ time: l.time || null, name });
+    });
+
+    // Also include any counselor.leaveDates that may not yet be migrated
+    const withLeaves = await Counselor.find({ leaveDates: { $exists: true, $ne: [] } }).lean();
     withLeaves.forEach(c => {
       (c.leaveDates || []).forEach(d => {
         map[d] = map[d] || [];
         const name = c.title ? `${c.title} ${c.firstName} ${c.lastName}` : `${c.firstName} ${c.lastName}`;
-        map[d].push(name);
+        // legacy full-day leave entries have time=null
+        if (!map[d].some(x => x && x.time === null && x.name === name)) map[d].push({ time: null, name });
       });
     });
+
     return res.json({ dates: Object.keys(map).sort(), details: map });
   } catch (err) {
     console.error('Error fetching leave dates:', err);
@@ -2379,17 +2429,44 @@ app.get('/api/leaves', async (req, res) => {
 app.post('/api/counselor/:id/leaves', async (req, res) => {
   try {
     const { id } = req.params;
-    const { date } = req.body;
+    const { date, time } = req.body;
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
     const counselor = await Counselor.findById(id);
     if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
-    counselor.leaveDates = counselor.leaveDates || [];
-    if (!counselor.leaveDates.includes(date)) counselor.leaveDates.push(date);
-    await counselor.save();
+
+    // Create a Leave document if it doesn't exist
+    const existing = await Leave.findOne({ counselor: counselor._id, date, time: time || null }).lean();
+    if (!existing) {
+      await Leave.create({ counselor: counselor._id, username: counselor.username || null, email: counselor.email || null, date, time: time || null });
+    }
+
+    // Keep backward compatibility: only add to counselor.leaveDates for full-day leaves
+    if (!time) {
+      counselor.leaveDates = counselor.leaveDates || [];
+      if (!counselor.leaveDates.includes(date)) {
+        counselor.leaveDates.push(date);
+        await counselor.save();
+      }
+    }
+
     return res.json({ success: true, leaveDates: counselor.leaveDates });
   } catch (err) {
     console.error('Error adding leave date:', err);
     return res.status(500).json({ error: 'Failed to add leave date' });
+  }
+});
+
+// Get leaves for a specific counselor (by id)
+app.get('/api/counselor/:id/leaves', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const counselor = await Counselor.findById(id).lean();
+    if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+    const leaves = await Leave.find({ counselor: counselor._id }).lean();
+    return res.json({ leaves });
+  } catch (err) {
+    console.error('Error fetching counselor leaves:', err);
+    return res.status(500).json({ error: 'Failed to fetch counselor leaves' });
   }
 });
 
@@ -2398,15 +2475,93 @@ app.delete('/api/counselor/:id/leaves/:date', async (req, res) => {
   try {
     const { id } = req.params;
     const date = req.params.date;
+    const time = req.query.time || null; // optional time (e.g. '9:00 AM' or '09:00')
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
     const counselor = await Counselor.findById(id);
     if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
-    counselor.leaveDates = (counselor.leaveDates || []).filter(d => d !== date);
-    await counselor.save();
+
+    // Remove from Leaves collection; if time provided, delete only that slot
+    const delFilter = { counselor: counselor._id, date };
+    if (time) delFilter.time = time;
+    await Leave.deleteMany(delFilter);
+
+    // Also remove from counselor.leaveDates for backward compatibility — only remove the date if no more leaves exist for that date
+    const remaining = await Leave.findOne({ counselor: counselor._id, date }).lean();
+    if (!remaining) {
+      counselor.leaveDates = (counselor.leaveDates || []).filter(d => d !== date);
+      await counselor.save();
+    }
+
     return res.json({ success: true, leaveDates: counselor.leaveDates });
   } catch (err) {
     console.error('Error removing leave date:', err);
     return res.status(500).json({ error: 'Failed to remove leave date' });
+  }
+});
+
+// Generic create leave (does not require an existing Counselor record).
+// Body: { counselorId?, username?, email?, date }
+app.post('/api/leaves', async (req, res) => {
+  try {
+    const { counselorId, username, email, date } = req.body || {};
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
+
+    let counselor = null;
+    if (counselorId) counselor = await Counselor.findById(counselorId).exec();
+
+    // if counselor exists, ensure Leave is linked and counselor.leaveDates kept in sync
+    if (counselor) {
+      const existing = await Leave.findOne({ counselor: counselor._id, date, time: time || null }).lean();
+      if (!existing) await Leave.create({ counselor: counselor._id, username: counselor.username || null, email: counselor.email || null, date, time: time || null });
+      // Only add to legacy counselor.leaveDates if this is a full-day leave
+      if (!time) {
+        counselor.leaveDates = counselor.leaveDates || [];
+        if (!counselor.leaveDates.includes(date)) {
+          counselor.leaveDates.push(date);
+          await counselor.save();
+        }
+      }
+      return res.json({ success: true, leaveDates: counselor.leaveDates });
+    }
+
+    // otherwise create a standalone Leave record with supplied username/email
+    const exists = await Leave.findOne({ username: username || null, email: email || null, date, time: time || null }).lean();
+    if (!exists) {
+      await Leave.create({ counselor: null, username: username || null, email: email || null, date, time: time || null });
+    }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error creating leave (generic):', err);
+    return res.status(500).json({ error: 'Failed to create leave' });
+  }
+});
+
+// Generic delete leave. Body: { counselorId?, username?, email?, date }
+app.delete('/api/leaves', async (req, res) => {
+  try {
+    const { counselorId, username, email, date, time } = req.body || {};
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
+
+    if (counselorId) {
+      const counselor = await Counselor.findById(counselorId).exec();
+      if (!counselor) return res.status(404).json({ error: 'Counselor not found' });
+      const delFilter = { counselor: counselor._id, date };
+      if (time) delFilter.time = time;
+      await Leave.deleteMany(delFilter);
+      const remaining = await Leave.findOne({ counselor: counselor._id, date }).lean();
+      if (!remaining) counselor.leaveDates = (counselor.leaveDates || []).filter(d => d !== date);
+      await counselor.save();
+      return res.json({ success: true, leaveDates: counselor.leaveDates });
+    }
+
+    // delete by username/email fallback
+    const delFilter = { username: username || null, email: email || null, date };
+    if (time) delFilter.time = time;
+    const delRes = await Leave.deleteMany(delFilter);
+    return res.json({ success: true, deletedCount: delRes.deletedCount || 0 });
+  } catch (err) {
+    console.error('Error deleting leave (generic):', err);
+    return res.status(500).json({ error: 'Failed to delete leave' });
   }
 });
 
