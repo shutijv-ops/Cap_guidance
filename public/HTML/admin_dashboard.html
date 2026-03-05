@@ -563,6 +563,7 @@
               <button type="button" id="settingsBtn-counselor" onclick="window.switchSettingsPanel('panel-counselor')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">👤 Admin's Profile</button>
               <button type="button" id="settingsBtn-add-counselor" onclick="window.switchSettingsPanel('panel-add-counselor')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">➕ Add Counselor</button>
               <button type="button" id="settingsBtn-leave-dates" onclick="window.switchSettingsPanel('panel-leave-dates')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">📅 Leave Dates</button>
+              <button type="button" id="settingsBtn-activity-logs" onclick="window.switchSettingsPanel('panel-activity-logs')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">📝 Activity Logs</button>
               <button type="button" id="settingsBtn-thresholds" onclick="window.switchSettingsPanel('panel-thresholds')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">🎯 Alert Thresholds</button>
               <button type="button" id="settingsBtn-daily-limit" onclick="window.switchSettingsPanel('panel-daily-limit')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">📋 Daily Limit</button>
               <button type="button" id="settingsBtn-total-limit" onclick="window.switchSettingsPanel('panel-total-limit')" class="settings-btn" style="flex: 1; min-width: 200px; padding: 1rem; background: #fff; border: 2px solid #e5e7eb; border-radius: 8px; color: #0a2342; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem;">🌐 Total Limit</button>
@@ -841,6 +842,19 @@
               </div>
               <ul id="leaveList" style="list-style:none; padding:0; margin:0; display:block; gap:6px;">
                 <!-- Leave dates will be rendered here -->
+              </ul>
+            </div>
+
+            <!-- Activity Logs Panel -->
+            <div id="panel-activity-logs" class="settings-panel" style="background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: none;">
+              <h3 style="color:#0a2342; margin-top:0; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; font-size:1.1rem;">📝 Activity Logs</h3>
+              <p style="color:#6b7280; margin:0 0 0.75rem 0; font-size:0.95rem;">Server-side recorded admin and counselor activity. Use this to audit changes.</p>
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:0.75rem;">
+                <button id="reloadActivityBtn" class="btn" style="padding:0.5rem 0.8rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">Reload</button>
+                <button id="clearActivityBtn" class="btn ghost" style="padding:0.5rem 0.8rem; margin-left:6px; border-radius:6px;">Clear all</button>
+              </div>
+              <ul id="activityList" style="list-style:none; padding:0; margin:0; display:block; gap:6px; max-height:320px; overflow:auto; border-top:1px solid #eef2f7; padding-top:8px;">
+                <!-- Activity items will be rendered here -->
               </ul>
             </div>
 

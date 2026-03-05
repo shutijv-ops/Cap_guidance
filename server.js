@@ -2115,23 +2115,25 @@ app.put('/api/appointments/:ref', async (req, res) => {
 // Optional: list appointments (admin)
 app.get('/api/appointments', async (req, res) => {
   try{
-    // Respect caller role: if a counselor is making the request, only return appointments assigned to them.
+    // Determine caller role using cookie parsing consistent with /api/me
     const cookieHeader = req.headers.cookie || '';
-    const cookies = {};
-    cookieHeader.split(';').map(s => s.trim()).forEach(part => { const kv = part.split('='); if (kv[0]) cookies[kv[0]] = kv.slice(1).join('='); });
-    const isCounselor = Object.keys(cookies).includes('counselor_auth') && cookies['counselor_auth'] === '1';
+    const parts = cookieHeader.split(';').map(s => s.trim()).filter(Boolean);
+    const isAdmin = parts.includes('admin_auth=1') || parts.some(p => p.startsWith('admin_auth='));
+    const isCounselor = parts.includes('counselor_auth=1') || parts.some(p => p.startsWith('counselor_auth='));
 
-    // Allow admin to optionally filter by counselor via query param, but counselors are restricted to their own username.
     let q = {};
-    if (isCounselor) {
-      const counselorUsername = cookies['counselor_user'] ? decodeURIComponent(cookies['counselor_user']) : null;
+    if (isAdmin) {
+      // Admin: return all appointments, optionally filter by ?counselor=username
+      if (req.query && req.query.counselor) q.counselor = req.query.counselor;
+    } else if (isCounselor) {
+      // Counselor: restrict to their username from cookie counselor_user
+      const cUserPart = parts.find(p => p.startsWith('counselor_user='));
+      const counselorUsername = cUserPart ? decodeURIComponent(cUserPart.split('=')[1]) : null;
       if (counselorUsername) q.counselor = counselorUsername;
-      else q = { counselor: null }; // no username — return none
+      else return res.status(401).json({ error: 'unauthenticated' });
     } else {
-      // Admin or unauthenticated: allow optional filter ?counselor=username
-      if (req.query && req.query.counselor) {
-        q.counselor = req.query.counselor;
-      }
+      // Not authenticated
+      return res.status(401).json({ error: 'unauthenticated' });
     }
 
     const docs = await Appointment.find(q).sort({ createdAt: -1 }).limit(200).lean();
@@ -2311,6 +2313,44 @@ app.post('/api/migrateApprovedSchedules', async (req, res) => {
 app.get('/api/notifications', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) return res.json({ notifications: [] });
+
+    // Inspect cookies to decide whether this request comes from a counselor session.
+    const cookie = req.headers.cookie || '';
+    const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+    const isAdmin = parts.includes('admin_auth=1') || parts.some(p => p.startsWith('admin_auth='));
+    const isCounselor = parts.includes('counselor_auth=1') || parts.some(p => p.startsWith('counselor_auth='));
+
+    // If the session belongs to an admin, return all notifications regardless
+    // of any counselor cookie that may also be present.
+    if (isAdmin) {
+      const docs = await Notification.find().sort({ createdAt: -1 }).limit(200).lean();
+      return res.json({ notifications: docs });
+    }
+
+    if (isCounselor) {
+      // Determine counselor username from cookie and try to lookup their email.
+      const userPart = parts.find(p => p.startsWith('counselor_user='));
+      const username = userPart ? decodeURIComponent(userPart.split('=')[1]) : null;
+      let email = null;
+      try {
+        if (username) {
+          const c = await Counselor.findOne({ username }).lean();
+          if (c) email = c.email || null;
+        }
+      } catch (e) { /* ignore lookup errors and fall back to username-only filter */ }
+
+      // Return notifications related to this counselor only (by actor or email)
+      const filter = { $or: [] };
+      if (username) filter.$or.push({ actor: username });
+      if (email) filter.$or.push({ email: email });
+      // If no reliable identifier found, return empty list to avoid leaking admin/system notifications
+      if (filter.$or.length === 0) return res.json({ notifications: [] });
+
+      const docs = await Notification.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+      return res.json({ notifications: docs });
+    }
+
+    // Non-counselor (admin / system): return all notifications
     const docs = await Notification.find().sort({ createdAt: -1 }).limit(200).lean();
     res.json({ notifications: docs });
   } catch (err) {
@@ -2360,17 +2400,67 @@ app.delete('/api/notifications', async (req, res) => {
   }
 });
 
+// Activity logs API - list recent activity entries
+app.get('/api/activity', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) return res.json({ activities: [] });
+    const { actor } = req.query || {};
+    const filter = {};
+    if (actor) filter.actor = actor;
+    const docs = await ActivityLog.find(filter).sort({ createdAt: -1 }).limit(200).lean();
+    res.json({ activities: docs });
+  } catch (err) {
+    console.error('Failed to fetch activity logs', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Clear activity logs (admin only)
+app.delete('/api/activity', async (req, res) => {
+  try {
+    const cookie = req.headers.cookie || '';
+    const isAdmin = cookie.split(';').map(s=>s.trim()).includes('admin_auth=1');
+    if (!isAdmin) return res.status(401).json({ error: 'not authorized' });
+    await ActivityLog.deleteMany({});
+    const notif = await Notification.create({ type: 'system', status: 'sent', message: 'Activity logs cleared by admin', email: '' }).catch(()=>null);
+    try { if (notif) sendSseEvent('activity', notif); } catch (e) {}
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to clear activity logs', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // ----- Counselor leave management APIs -----
 // Return all leave dates (summary) and details per counselor
 app.get('/api/leaves', async (req, res) => {
   try {
     // Query by username/email to return raw Leave docs for a specific identifier
+    // Accept either standalone Leave entries (username/email fields) or
+    // Leave documents that reference a Counselor (via counselor ObjectId).
     const { username: qUser, email: qEmail } = req.query || {};
     if (qUser || qEmail) {
-      const filter = {};
-      if (qUser) filter.username = qUser;
-      if (qEmail) filter.email = qEmail;
+      const orClauses = [];
+      const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (qUser) {
+        // case-insensitive match for username
+        orClauses.push({ username: { $regex: new RegExp('^' + escapeRegex(qUser) + '$', 'i') } });
+        try {
+          const c = await Counselor.findOne({ username: { $regex: new RegExp('^' + escapeRegex(qUser) + '$', 'i') } }).select('_id').lean();
+          if (c && c._id) orClauses.push({ counselor: c._id });
+        } catch (e) { /* ignore lookup errors */ }
+      }
+      if (qEmail) {
+        orClauses.push({ email: { $regex: new RegExp('^' + escapeRegex(qEmail) + '$', 'i') } });
+        try {
+          const c2 = await Counselor.findOne({ email: { $regex: new RegExp('^' + escapeRegex(qEmail) + '$', 'i') } }).select('_id').lean();
+          if (c2 && c2._id) orClauses.push({ counselor: c2._id });
+        } catch (e) { /* ignore lookup errors */ }
+      }
+      const filter = orClauses.length ? { $or: orClauses } : {};
+      console.log('[LEAVES] Query by username/email:', { qUser, qEmail, filter });
       const docs = await Leave.find(filter).lean();
+      console.log('[LEAVES] Found leaves count:', docs.length);
       return res.json({ leaves: docs });
     }
     // Load all Leave documents and counselors for name resolution
@@ -2503,7 +2593,7 @@ app.delete('/api/counselor/:id/leaves/:date', async (req, res) => {
 // Body: { counselorId?, username?, email?, date }
 app.post('/api/leaves', async (req, res) => {
   try {
-    const { counselorId, username, email, date } = req.body || {};
+    const { counselorId, username, email, date, time } = req.body || {};
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date format. Use yyyy-mm-dd' });
 
     let counselor = null;

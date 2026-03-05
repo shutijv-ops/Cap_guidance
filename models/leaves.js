@@ -9,4 +9,7 @@ const leaveSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Compound index to speed queries by counselor/date/time
+leaveSchema.index({ counselor: 1, date: 1, time: 1 });
+
 module.exports = mongoose.model('Leave', leaveSchema);
