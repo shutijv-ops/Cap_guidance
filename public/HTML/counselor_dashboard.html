@@ -672,6 +672,55 @@
     </div>
   </div>
 
+    <!-- Student Details Modal -->
+    <div id="studentDetailsModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:2000;padding:24px; box-sizing:border-box;">
+      <div class="modal-content" style="width:100%; max-width:620px; background:#fff; border-radius:10px; padding:1rem; box-shadow:0 20px 60px rgba(0,0,0,0.28); box-sizing:border-box;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:2px solid #e5eeb; padding-bottom:1rem;">
+          <h3 style="margin:0; font-size:1.25rem; color:#1f2937;">Student Information</h3>
+          <button class="close-modal" id="closeStudentModalBtn" onclick="closeStudentDetailsModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#6b7280;">&times;</button>
+        </div>
+        <div class="modal-body" style="margin-bottom:1rem;">
+          <div class="details-grid" style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Name:</label>
+              <div id="studentModalName" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Student ID:</label>
+              <div id="studentModalId" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Course:</label>
+              <div id="studentModalCourse" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Year:</label>
+              <div id="studentModalYear" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Email:</label>
+              <div id="studentModalEmail" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Contact:</label>
+              <div id="studentModalContact" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Sessions:</label>
+              <div id="studentModalSessions" style="font-weight:600; color:#1f2937;">0</div>
+            </div>
+            <div class="detail-group" style="grid-column:1 / -1;">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Last Appointment:</label>
+              <div id="studentModalLastAppt" style="font-weight:600; color:#1f2937;">No appointments</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; gap:0.5rem; border-top:2px solid #e5e7eb; padding-top:0.75rem;">
+          <button class="btn" style="background:#0a2342; color:#fff; border:none; padding:0.6rem 1rem; border-radius:8px;" onclick="closeStudentDetailsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
   <!-- Reschedule Appointment Modal -->
   <div id="rescheduleModal" class="modal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000;">
     <div class="modal-content" style="width:100%; max-width:500px; background:#fff; border-radius:12px; padding:2rem; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto;">
