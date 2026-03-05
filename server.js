@@ -2179,6 +2179,40 @@ app.get('/api/appointments/count-today/:studentId', async (req, res) => {
 });
 
 // Get all students from database
+// Create a new student (admin only)
+app.post('/api/students', async (req, res) => {
+  try {
+    // simple admin cookie check
+    const cookie = req.headers.cookie || '';
+    const parts = cookie.split(';').map(s => s.trim()).filter(Boolean);
+    const isAdmin = parts.includes('admin_auth=1') || parts.some(p => p.startsWith('admin_auth='));
+    if (!isAdmin) return res.status(401).json({ error: 'unauthorized' });
+
+    const {
+      schoolId, firstName, middleName, lastName, suffix,
+      email, course, year, contact, password
+    } = req.body || {};
+
+    if (!schoolId || !firstName || !lastName || !email) {
+      return res.status(400).json({ error: 'missing required fields' });
+    }
+
+    const existing = await Student.findOne({ $or: [{ schoolId }, { email }] }).lean();
+    if (existing) return res.status(409).json({ error: 'student exists' });
+
+    const pwd = (password && String(password).trim().length)
+      ? password
+      : (lastName && String(lastName).trim().length ? String(lastName).trim().toUpperCase() : (String(schoolId || '').trim() || 'CHANGEME'));
+    const s = new Student({ schoolId, firstName, middleName, lastName, suffix, email, course, year, contact, password: pwd });
+    await s.save();
+    return res.json({ ok: true, student: { schoolId: s.schoolId, firstName: s.firstName, lastName: s.lastName, email: s.email, course: s.course, year: s.year, contact: s.contact, _id: s._id } });
+  } catch (err) {
+    console.error('/api/students POST error', err);
+    if (err && err.code === 11000) return res.status(409).json({ error: 'duplicate' });
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 app.get('/api/students', async (req, res) => {
   try {
     const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName course year email').lean();
