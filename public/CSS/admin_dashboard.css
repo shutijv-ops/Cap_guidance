@@ -28,6 +28,14 @@
   z-index: 99999;
 }
 
+/* Helper to hide the page loader and skeleton placeholders */
+.loader-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .loader-card {
   background: var(--card, #fff);
   padding: 1.25rem 1.5rem;
@@ -1240,6 +1248,10 @@ body::before {
   padding-top: 12px;
   color: var(--muted);
 }
+
+/* Ensure footer/pagination are above potential overlapping content */
+.table-footer { position: relative; z-index: 30; }
+.pagination .btn { position: relative; z-index: 31; }
 
 .pagination {
   display: flex;

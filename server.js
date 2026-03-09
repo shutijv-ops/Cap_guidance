@@ -15,6 +15,15 @@ const socketIO = require('socket.io');
 // Initialize SendGrid
 if (process.env.SENDGRID_API_KEY) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('[SENDGRID] API key detected and set');
+} else {
+  console.warn('[SENDGRID] API key not found in environment (emails will be skipped)');
+}
+
+if (!process.env.FROM_EMAIL) {
+  console.warn('[SENDGRID] FROM_EMAIL not configured (messages may fail or be rejected)');
+} else {
+  console.log('[SENDGRID] FROM_EMAIL configured as', process.env.FROM_EMAIL);
 }
 
 // Email helper function
@@ -97,15 +106,79 @@ async function sendAppointmentEmail(appt, type = 'approved') {
       <p>Best regards,<br/>JRMSU Guidance Office</p>
     `;
 
+    if (!process.env.FROM_EMAIL) {
+      console.warn('FROM_EMAIL not configured - skipping email send for', appt.refNumber);
+      try {
+        if (typeof Notification !== 'undefined') {
+          const studentName = [appt.fname, appt.mname ? appt.mname + ' ' : '', appt.lname, appt.suffix ? ' ' + appt.suffix : ''].join('').trim();
+          await Notification.create({
+            type: type === 'rescheduled' ? 'rescheduled' : (type === 'completed' ? 'completed' : 'approved'),
+            refNumber: appt.refNumber,
+            email: appt.email,
+            status: 'failed',
+            message: `Skipped sending email due to missing FROM_EMAIL for ${studentName}`
+          });
+        }
+      } catch (dbErr) { console.error('Failed to create notification record (missing FROM_EMAIL):', dbErr); }
+      return;
+    }
+
+    const text = `Hi ${appt.fname} ${appt.lname},\n\n` +
+      `Your appointment (Ref: ${appt.refNumber}) has been ${statusText}.\n\n` +
+      `Date: ${formattedDate}\nTime: ${formattedTime}\nCounselor: ${appt.counselor || 'Ms. Kristine Carl B. Lopez'}\n\n` +
+      `If you have questions, reply to this message.`;
+
     const msg = {
       to,
       from: process.env.FROM_EMAIL,
+      replyTo: process.env.REPLY_TO || process.env.FROM_EMAIL,
       subject,
-      html
+      text,
+      html,
+      headers: {
+        'X-Mailer': 'JRMSU-App/1.0'
+      }
     };
 
-    await sgMail.send(msg);
-    console.log('Approval email sent to', to);
+    // Attempt send and capture SendGrid response for diagnostics
+    let sendRes;
+    try {
+      sendRes = await sgMail.send(msg);
+    } catch (e) {
+      // rethrow to outer catch handler to record failure there
+      throw e;
+    }
+
+    // Extract SendGrid message id/header if present for tracing
+    let sgMessageId = null;
+    let sgHeaders = null;
+    try {
+      if (Array.isArray(sendRes) && sendRes[0]) {
+        sgHeaders = sendRes[0].headers || sendRes[0].headers;
+        if (sgHeaders) sgMessageId = sgHeaders['x-message-id'] || sgHeaders['X-Message-Id'] || sgHeaders['x-msg-id'] || null;
+      } else if (sendRes && sendRes.headers) {
+        sgHeaders = sendRes.headers;
+        sgMessageId = sgHeaders['x-message-id'] || sgHeaders['X-Message-Id'] || sgHeaders['x-msg-id'] || null;
+      }
+    } catch (e) { /* ignore */ }
+
+    console.log('Approval email sent to', to, 'SendGrid statusCode:', Array.isArray(sendRes) ? (sendRes[0] && sendRes[0].statusCode) : (sendRes && sendRes.statusCode), 'messageId:', sgMessageId);
+    try {
+      if (typeof Notification !== 'undefined') {
+        const studentName = [appt.fname, appt.mname ? appt.mname + ' ' : '', appt.lname, appt.suffix ? ' ' + appt.suffix : ''].join('').trim();
+        const notif = await Notification.create({
+          type: type === 'rescheduled' ? 'rescheduled' : (type === 'completed' ? 'completed' : 'approved'),
+          refNumber: appt.refNumber,
+          email: to,
+          status: 'sent',
+          message: `Email confirmation for ${studentName}'s appointment on ${formattedDate} at ${formattedTime} was sent. SendGrid status: ${Array.isArray(sendRes) ? (sendRes[0] && sendRes[0].statusCode) : (sendRes && sendRes.statusCode)}`,
+          meta: { sendgrid: { messageId: sgMessageId, headers: sgHeaders } }
+        });
+        try { sendSseEvent('notification', notif); } catch (e) {}
+      }
+    } catch (dbErr) {
+      console.error('Failed to create notification record (sent):', dbErr);
+    }
         try {
           // record notification in DB
           if (typeof Notification !== 'undefined') {
@@ -133,7 +206,7 @@ async function sendAppointmentEmail(appt, type = 'approved') {
           console.error('Failed to create notification record (sent):', dbErr);
         }
   } catch (err) {
-    console.error('Failed to send approval email:', err?.response?.body?.errors || err);
+    console.error('Failed to send approval email:', err?.response?.body || err);
         try {
         if (typeof Notification !== 'undefined') {
           // Create student full name
@@ -149,7 +222,7 @@ async function sendAppointmentEmail(appt, type = 'approved') {
             refNumber: appt.refNumber,
             email: appt.email,
             status: 'failed',
-            message: `Failed to send email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)}. Error: ${err.message || 'Unknown error'}`
+            message: `Failed to send email confirmation for ${studentName}'s appointment on ${formatDateForEmail(appt.date)} at ${formatTimeForEmail(appt.time)}. Error: ${JSON.stringify(err?.response?.body || err.message || err)}`
           });
           try { sendSseEvent('notification', notif); } catch (e) { /* ignore SSE errors */ }
           try { if (typeof broadcastUpdate === 'function') broadcastUpdate('notification', notif); } catch (e) { /* ignore */ }
@@ -251,6 +324,27 @@ mongoose.connect(MONGODB_URI, {
       }
     } catch (e) {
       console.warn('[ADMIN] Failed to load admin from DB on startup', e);
+    }
+
+    // Startup cleanup: ensure legacy `counselor.leaveDates` entries without
+    // corresponding `Leave` documents are pruned. This prevents deleted dates
+    // from reappearing after a restart when only the legacy field remained.
+    try {
+      const counselorsWithLeaves = await Counselor.find({ leaveDates: { $exists: true, $ne: [] } }).exec();
+      for (const c of counselorsWithLeaves) {
+        const keep = [];
+        for (const d of (c.leaveDates || [])) {
+          const exist = await Leave.findOne({ counselor: c._id, date: d }).lean();
+          if (exist) keep.push(d);
+        }
+        if (keep.length !== (c.leaveDates || []).length) {
+          c.leaveDates = keep;
+          await c.save();
+          console.log(`[LEAVES] Cleaned legacy leaveDates for counselor ${c.username || c.email}: kept ${keep.length}`);
+        }
+      }
+    } catch (e) {
+      console.warn('[LEAVES] Startup cleanup failed', e);
     }
 
     // Remove any counselor documents that appear to be the admin (avoid admin data in counselors collection)
@@ -453,6 +547,73 @@ app.get('/', (req, res) => {
 
 // Simple health
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Debug endpoint: report SendGrid config presence (does not leak API key)
+app.get('/api/debug/sendgrid-status', (req, res) => {
+  try {
+    const hasKey = !!process.env.SENDGRID_API_KEY;
+    const hasFrom = !!process.env.FROM_EMAIL;
+    return res.json({ ok: true, sendgrid: { configured: hasKey, fromConfigured: hasFrom } });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'failed' });
+  }
+});
+
+// Debug: send appointment email for given ref (POST { ref: 'REF123' })
+app.post('/api/debug/send-appointment-email', async (req, res) => {
+  try {
+    const { ref } = req.body || {};
+    if (!ref) return res.status(400).json({ error: 'ref required' });
+
+    // Find appointment by ref or _id
+    let appt = await Appointment.findOne({ refNumber: ref }).lean();
+    if (!appt) {
+      try { appt = await Appointment.findById(ref).lean(); } catch (e) { /* ignore */ }
+    }
+    if (!appt) return res.status(404).json({ error: 'appointment not found' });
+
+    // Ensure email exists
+    if (!appt.email) return res.status(400).json({ error: 'appointment has no email' });
+
+    console.log('[DEBUG] Triggering sendAppointmentEmail for', appt.refNumber, 'to', appt.email);
+    try {
+      await sendAppointmentEmail(appt, (req.body.type || 'approved'));
+      return res.json({ ok: true, message: 'email send attempted' });
+    } catch (err) {
+      console.error('[DEBUG] sendAppointmentEmail failed:', err);
+      return res.status(500).json({ ok: false, error: 'send failed', details: err.message || String(err) });
+    }
+  } catch (e) {
+    console.error('Debug send-appointment-email error:', e);
+    return res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Debug: list recent notifications
+app.get('/api/debug/notifications', async (req, res) => {
+  try {
+    if (typeof Notification === 'undefined') return res.json({ ok: true, notifications: [] });
+    const docs = await Notification.find().sort({ createdAt: -1 }).limit(20).lean();
+    return res.json({ ok: true, notifications: docs });
+  } catch (e) {
+    console.error('Failed to fetch debug notifications:', e);
+    return res.status(500).json({ ok: false, error: 'failed' });
+  }
+});
+
+// Debug: get latest notification for a specific appointment ref
+app.get('/api/debug/notification/:ref', async (req, res) => {
+  try {
+    const ref = req.params.ref;
+    if (!ref) return res.status(400).json({ ok: false, error: 'ref required' });
+    const doc = await Notification.findOne({ refNumber: ref }).sort({ createdAt: -1 }).lean();
+    if (!doc) return res.status(404).json({ ok: false, error: 'not found' });
+    return res.json({ ok: true, notification: doc });
+  } catch (e) {
+    console.error('Failed to fetch debug notification by ref:', e);
+    return res.status(500).json({ ok: false, error: 'failed' });
+  }
+});
 
 // Get student appointments by student ID and email
 app.post('/api/appointments/student', async (req, res) => {
@@ -2215,7 +2376,7 @@ app.post('/api/students', async (req, res) => {
 
 app.get('/api/students', async (req, res) => {
   try {
-    const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName course year email').lean();
+    const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName suffix course year email contact').lean();
     
     // Compute fullName for each student since lean() doesn't include virtuals
     const formattedStudents = students.map(s => ({
@@ -2573,6 +2734,10 @@ app.post('/api/counselor/:id/leaves', async (req, res) => {
       }
     }
 
+    // notify clients of leave change
+    try { sendSseEvent('leave', { action: 'created', counselorId: String(counselor._id), date, time: time || null }); } catch (e) {}
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('leave-updated', { action: 'created', counselorId: String(counselor._id), date, time: time || null }); } catch (e) {}
+
     return res.json({ success: true, leaveDates: counselor.leaveDates });
   } catch (err) {
     console.error('Error adding leave date:', err);
@@ -2616,6 +2781,10 @@ app.delete('/api/counselor/:id/leaves/:date', async (req, res) => {
       await counselor.save();
     }
 
+    // notify clients of leave deletion for this counselor
+    try { sendSseEvent('leave', { action: 'deleted', counselorId: String(counselor._id), date, time: time || null }); } catch (e) {}
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('leave-updated', { action: 'deleted', counselorId: String(counselor._id), date, time: time || null }); } catch (e) {}
+
     return res.json({ success: true, leaveDates: counselor.leaveDates });
   } catch (err) {
     console.error('Error removing leave date:', err);
@@ -2653,6 +2822,9 @@ app.post('/api/leaves', async (req, res) => {
     if (!exists) {
       await Leave.create({ counselor: null, username: username || null, email: email || null, date, time: time || null });
     }
+    // notify clients about new standalone leave
+    try { sendSseEvent('leave', { action: 'created', counselorId: null, username: username || null, email: email || null, date, time: time || null }); } catch (e) {}
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('leave-updated', { action: 'created', counselorId: null, username: username || null, email: email || null, date, time: time || null }); } catch (e) {}
     return res.json({ success: true });
   } catch (err) {
     console.error('Error creating leave (generic):', err);
@@ -2679,9 +2851,46 @@ app.delete('/api/leaves', async (req, res) => {
     }
 
     // delete by username/email fallback
-    const delFilter = { username: username || null, email: email || null, date };
+    // Build the filter only with provided identifier fields so we don't
+    // accidentally require `email: null` when the record has an email value.
+    const delFilter = { date };
+    if (username) delFilter.username = username;
+    if (email) delFilter.email = email;
     if (time) delFilter.time = time;
     const delRes = await Leave.deleteMany(delFilter);
+    // notify clients about generic delete
+    try { sendSseEvent('leave', { action: 'deleted', username: username || null, email: email || null, date, time: time || null, deletedCount: delRes.deletedCount || 0 }); } catch (e) {}
+    try { if (typeof broadcastUpdate === 'function') broadcastUpdate('leave-updated', { action: 'deleted', username: username || null, email: email || null, date, time: time || null, deletedCount: delRes.deletedCount || 0 }); } catch (e) {}
+
+    // If a counselor document exists for this username/email, ensure legacy
+    // `counselor.leaveDates` is kept in sync: remove the date if there
+    // are no remaining Leave documents for that counselor/date.
+    try {
+      // Find any counselor whose username/email matches either provided value
+      // This covers cases where the caller passed a username but the DB
+      // record uses a different username (eg. temp.counselor) but has the
+      // same email, or vice-versa.
+      const q = { $or: [] };
+      if (username) q.$or.push({ username });
+      if (email) q.$or.push({ email });
+      // also try cross-matching in case the UI passed email in `username`
+      if (username) q.$or.push({ email: username });
+      if (email) q.$or.push({ username: email });
+
+      if (q.$or.length > 0) {
+        const counselors = await Counselor.find(q).exec();
+        for (const counselor of counselors) {
+          const remaining = await Leave.findOne({ counselor: counselor._id, date }).lean();
+          if (!remaining) {
+            counselor.leaveDates = (counselor.leaveDates || []).filter(d => d !== date);
+            await counselor.save();
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync counselor.leaveDates after generic delete', e);
+    }
+
     return res.json({ success: true, deletedCount: delRes.deletedCount || 0 });
   } catch (err) {
     console.error('Error deleting leave (generic):', err);

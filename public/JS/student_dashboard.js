@@ -728,38 +728,57 @@ document.addEventListener('DOMContentLoaded', () => {
             <label class="ref-label"><span class="ref-label-title">Course</span>
               <select id="r_course" class="ref-input">
                 <option value="">Select Course</option>
-                <option>Bachelor of Science in Computer Science</option>
-                <option>Bachelor of Science in Information Systems</option>
-                <option>Bachelor of Science in Criminology</option>
-                <option>Bachelor of Science in Marine Biology</option>
-                <option>Bachelor of Arts in English Language Studies</option>
-                <option>Bachelor of Arts in Political Science</option>
-                <option>Bachelor of Science in Accountancy</option>
-                <option>BS in Accounting Information System</option>
-                <option>BS in Internal Auditing</option>
-                <option>BS in Management Accounting</option>
-                <option>BS in Business Administration – Financial Management</option>
-                <option>BS in Business Administration – Marketing Management</option>
-                <option>BS in Entrepreneurship</option>
-                <option>BS in Hotel and Restaurant Management</option>
-                <option>BS in Tourism Management</option>
-                <option>Bachelor of Elementary Education</option>
-                <option>Bachelor of Secondary Education – English</option>
-                <option>Bachelor of Secondary Education – Filipino</option>
-                <option>Bachelor of Secondary Education – Mathematics</option>
-                <option>Bachelor of Secondary Education – Science</option>
-                <option>Bachelor of Secondary Education – Social Studies</option>
-                <option>Bachelor of Physical Education</option>
-                <option>Bachelor of Early Childhood Education</option>
-                <option>Bachelor of Culture and Arts Education</option>
-                <option>Bachelor of Science in Civil Engineering (major in Structural Engineering)</option>
-                <option>Bachelor of Science in Computer Engineering</option>
-                <option>Bachelor of Science in Electrical Engineering</option>
-                <option>Bachelor of Science in Electronics Engineering</option>
-                <option>Bachelor of Science in Marine Transportation</option>
-                <option>Bachelor of Science in Marine Engineering</option>
-                <option>Bachelor of Science in Nursing</option>
-                <option>Bachelor of Science in Midwifery</option>
+                <optgroup label="CNAHS - College of Nursing and Allied Health Sciences">
+                  <option>Bachelor of Science in Midwifery</option>
+                  <option>Bachelor of Science in Nursing</option>
+                </optgroup>
+                <optgroup label="CBA - College of Business Administration">
+                  <option>Bachelor of Science in Accountancy</option>
+                  <option>Bachelor of Science in Accounting -Information Systems</option>
+                  <option>Bachelor of Science in Business -Administration – Financial Management</option>
+                  <option>Bachelor of Science in Business -Administration – Marketing Management</option>
+                  <option>Bachelor of Science in Entrepreneurship</option>
+                  <option>Bachelor of Science in Internal Auditing</option>
+                  <option>Bachelor of Science in Management Accounting</option>
+                </optgroup>
+                <optgroup label="CLAMS - College of Liberal Arts and Marine Sciences">
+                  <option>Bachelor of Arts in English Language Studies</option>
+                  <option>Bachelor of Arts in Political Science</option>
+                  <option>Bachelor of Science in Marine Biology</option>
+                </optgroup>
+                <optgroup label="CTED - College of Teacher Education">
+                  <option>Bachelor of Culture and Arts Education</option>
+                  <option>Bachelor of Early Childhood Education</option>
+                  <option>Bachelor of Elementary Education</option>
+                  <option>Bachelor of Physical Education</option>
+                  <option>Bachelor of Secondary Education – English</option>
+                  <option>Bachelor of Secondary Education – Filipino</option>
+                  <option>Bachelor of Secondary Education – Mathematics</option>
+                  <option>Bachelor of Secondary Education – Science</option>
+                  <option>Bachelor of Secondary Education – Social Studies</option>
+                </optgroup>
+                <optgroup label="CCJE - College of Criminal Justice Education">
+                  <option>Bachelor of Science in Criminology</option>
+                </optgroup>
+                <optgroup label="COE - College of Engineering">
+                  <option>Bachelor of Science in Civil Engineering major in Structural Engineering</option>
+                  <option>Bachelor of Science in Computer Engineering</option>
+                  <option>Bachelor of Science in Electrical Engineering</option>
+                  <option>Bachelor of Science in Electronics Engineering</option>
+                </optgroup>
+                <optgroup label="SOM - School of Maritime">
+                  <option>Bachelor of Science in Marine Engineering</option>
+                  <option>Bachelor of Science in Marine Transportation</option>
+                </optgroup>
+                <optgroup label="CME - College of Management and Entrepreneurship">
+                  <option>Bachelor of Science in Hospitality Management</option>
+                  <option>Bachelor of Science in Tourism Management</option>
+                </optgroup>
+                <optgroup label="CCS - College of Computing Studies">
+                  <option>Bachelor of Science in Computer Science</option>
+                  <option>Bachelor of Science in Information Systems</option>
+                  <option>Bachelor of Science in Information Technology</option>
+                </optgroup>
               </select>
             </label>
             <label class="ref-label"><span class="ref-label-title">Year</span>

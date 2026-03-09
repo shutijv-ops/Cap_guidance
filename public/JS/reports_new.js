@@ -13,6 +13,61 @@ let collegeDonutChart = null;
 let courseDonutChart = null;
 let reportsAppointments = [];
 
+// Course -> Department mapping (provided list)
+const COURSE_TO_DEPT = {
+  'bachelor of science in midwifery': 'CNAHS',
+  'bachelor of science in nursing': 'CNAHS',
+
+  'bachelor of science in accountancy': 'CBA',
+  'bachelor of science in accounting -information systems': 'CBA',
+  'bachelor of science in business -administration – financial management': 'CBA',
+  'bachelor of science in business -administration – marketing management': 'CBA',
+  'bachelor of science in entrepreneurship': 'CBA',
+  'bachelor of science in internal auditing': 'CBA',
+  'bachelor of science in management accounting': 'CBA',
+
+  'bachelor of arts in english language studies': 'CLAMS',
+  'bachelor of arts in political science': 'CLAMS',
+  'bachelor of science in marine biology': 'CLAMS',
+
+  'bachelor of culture and arts education': 'CTED',
+  'bachelor of early childhood education': 'CTED',
+  'bachelor of elementary education': 'CTED',
+  'bachelor of physical education': 'CTED',
+  'bachelor of secondary education – english': 'CTED',
+  'bachelor of secondary education – filipino': 'CTED',
+  'bachelor of secondary education – mathematics': 'CTED',
+  'bachelor of secondary education – science': 'CTED',
+  'bachelor of secondary education – social studies': 'CTED',
+
+  'bachelor of science in criminology': 'CCJE',
+
+  'bachelor of science in civil engineering major in structural engineering': 'COE',
+  'bachelor of science in computer engineering': 'COE',
+  'bachelor of science in electrical engineering': 'COE',
+  'bachelor of science in electronics engineering': 'COE',
+
+  'bachelor of science in marine engineering': 'SOM',
+  'bachelor of science in marine transportation': 'SOM',
+
+  'bachelor of science in hospitality management': 'CME',
+  'bachelor of science in tourism management': 'CME',
+
+  'bachelor of science in computer science': 'CCS',
+  'bachelor of science in information systems': 'CCS',
+  'bachelor of science in information technology': 'CCS'
+};
+
+function mapCourseToDept(course) {
+  if (!course) return null;
+  const s = String(course).toLowerCase().trim();
+  // Exact/substring match against mapping keys
+  for (const key of Object.keys(COURSE_TO_DEPT)) {
+    if (s.includes(key) || key.includes(s) || s === key) return COURSE_TO_DEPT[key];
+  }
+  return null;
+}
+
 // Professional color palette
 const URGENCY_COLORS = {
   'Crisis': { line: '#ef4444', fill: 'rgba(239, 68, 68, 0.08)', hover: 'rgba(239, 68, 68, 0.15)' },
@@ -66,22 +121,29 @@ function setupChartDefaults() {
 }
 
 // Render college distribution chart
-function renderCollegeChart(appointments) {
-  console.log('[REPORTS] Rendering college chart');
+// Render department distribution chart (maps courses -> department)
+function renderDepartmentChart(appointments) {
+  console.log('[REPORTS] Rendering department chart');
 
-  const collegeMap = {};
+  const deptMap = {};
   (appointments || []).forEach(apt => {
-    const college = apt.college || apt.schoolName || 'Unknown';
-    collegeMap[college] = (collegeMap[college] || 0) + 1;
+    // Prefer explicit department if provided
+    let dept = apt.department || apt.college || apt.schoolName || null;
+    // Try to map from course when available
+    if (!dept && apt.course) dept = mapCourseToDept(apt.course);
+    // If still null, try mapping from course anyway (course names may be present)
+    if (!dept && apt.course) dept = mapCourseToDept(apt.course);
+    dept = dept || 'Unknown';
+    deptMap[dept] = (deptMap[dept] || 0) + 1;
   });
 
-  const labels = Object.keys(collegeMap);
-  const data = Object.values(collegeMap);
+  const labels = Object.keys(deptMap);
+  const data = Object.values(deptMap);
   const colors = labels.map((_, i) => DISTRIBUTION_COLORS[i % DISTRIBUTION_COLORS.length]);
 
-  const canvas = document.getElementById('collegeDonut');
+  const canvas = document.getElementById('departmentDonut');
   if (!canvas) {
-    console.warn('[REPORTS] College canvas not found');
+    console.warn('[REPORTS] Department canvas not found');
     return;
   }
 
@@ -114,9 +176,7 @@ function renderCollegeChart(appointments) {
           easing: 'easeInOutQuart'
         },
         plugins: {
-          datalabels: {
-            display: false
-          },
+          datalabels: { display: false },
           legend: { display: false },
           tooltip: {
             callbacks: {
@@ -139,25 +199,34 @@ function renderCollegeChart(appointments) {
         }
       }
     });
-    // Render custom right-side legend (label + percentage) to match reference design
+
+    // Render custom right-side legend
     try {
       const total = data.reduce((a, b) => a + b, 0) || 0;
-      const legendEl = document.getElementById('collegeLegend');
+      const legendEl = document.getElementById('departmentLegend');
       if (legendEl) {
         legendEl.innerHTML = labels.map((label, i) => {
           const value = data[i] || 0;
           const pct = total ? Math.round((value / total) * 100) : 0;
           const color = colors[i] || '#ccc';
-          return `\n            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">\n              <div style="display:flex; align-items:center; gap:8px;">\n                <span style="width:12px; height:12px; background:${color}; border-radius:3px; display:inline-block; box-shadow:0 0 0 1px rgba(0,0,0,0.04);"></span>\n                <div style="color:#1e293b; font-weight:600; font-size:13px;">${label}</div>\n              </div>\n              <div style="color:#64748b; font-size:13px;">${pct}%</div>\n            </div>`;
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="width:12px; height:12px; background:${color}; border-radius:3px; display:inline-block; box-shadow:0 0 0 1px rgba(0,0,0,0.04);"></span>
+                <div style="color:#1e293b; font-weight:600; font-size:13px;">${label}</div>
+              </div>
+              <div style="color:#64748b; font-size:13px;">${pct}%</div>
+            </div>`;
         }).join('');
       }
     } catch (e) {
-      console.warn('[REPORTS] College legend render failed', e);
+      console.warn('[REPORTS] Department legend render failed', e);
     }
-    console.log('[REPORTS] ✅ College chart created');
-    try { window.collegeChart = collegeDonutChart; } catch(e){}
+
+    console.log('[REPORTS] ✅ Department chart created');
+    try { window.departmentChart = collegeDonutChart; } catch(e){}
   } catch (e) {
-    console.error('[REPORTS] College chart error:', e);
+    console.error('[REPORTS] Department chart error:', e);
   }
 }
 
@@ -548,7 +617,7 @@ async function initReports() {
 
   // Render distribution charts
   if (appointments.length > 0) {
-    renderCollegeChart(appointments);
+    renderDepartmentChart(appointments);
     renderCourseChart(appointments);
   } else {
     console.warn('[REPORTS] No appointments for distribution charts');

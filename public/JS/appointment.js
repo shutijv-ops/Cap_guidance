@@ -158,6 +158,25 @@ if (!checkStudentLogin()) {
   const monthLabel = document.getElementById('monthLabel');
   const prevMonth = document.getElementById('prevMonth');
   const nextMonth = document.getElementById('nextMonth');
+  const refreshLeavesBtn = document.getElementById('refreshLeavesBtn');
+
+  if (refreshLeavesBtn) {
+    refreshLeavesBtn.addEventListener('click', async () => {
+      try {
+        refreshLeavesBtn.disabled = true;
+        const original = refreshLeavesBtn.textContent;
+        refreshLeavesBtn.textContent = 'Refreshing...';
+        await fetchLeaveDates();
+        await renderCalendar();
+        await renderTimeSlots();
+        refreshLeavesBtn.textContent = original;
+      } catch (e) {
+        console.warn('Refresh leaves failed', e);
+      } finally {
+        refreshLeavesBtn.disabled = false;
+      }
+    });
+  }
 
   const morningSlots = document.getElementById('morningSlots');
   const afternoonSlots = document.getElementById('afternoonSlots');
@@ -775,6 +794,15 @@ function setProgress(current){
       };
       es.addEventListener('appointment', handle);
       es.addEventListener('appointment:update', handle);
+      // Listen for leave changes and refresh leave data when they occur
+      es.addEventListener('leave', (ev) => {
+        try{
+          fetchLeaveDates().then(()=>{
+            renderCalendar();
+            renderTimeSlots();
+          }).catch(()=>{});
+        }catch(e){/* ignore */}
+      });
       es.onerror = () => { /* swallow errors, EventSource will retry */ };
     }catch(err){ console.warn('SSE not available', err); }
   }
