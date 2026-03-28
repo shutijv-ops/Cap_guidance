@@ -96,6 +96,8 @@
               </div>
           </div>
         </div>
+
+ 
       </header>
 
       <!-- SPA Views Container -->
@@ -168,7 +170,7 @@
                   <thead>
                     <tr>
                       <th>Student</th>
-                      <th>Type</th>
+                      <th>Course</th>
                       <th>Date</th>
                       <th>Priority</th>
                       <th>Status</th>
@@ -209,8 +211,9 @@
           <div class="page-header">
             <h2>Appointments Management</h2>
             <div class="page-actions">
-              <button class="btn primary" id="listViewBtn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">List View</button>
-              <button class="btn" id="calendarViewBtn" style="padding:0.5rem 1.5rem; background:#e5e7eb; color:#374151; border:none; border-radius:6px; cursor:pointer;">Calendar View</button>
+                <button class="btn primary" id="listViewBtn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">List View</button>
+                <button class="btn" id="calendarViewBtn" style="padding:0.5rem 1.5rem; background:#e5e7eb; color:#374151; border:none; border-radius:6px; cursor:pointer;">Calendar View</button>
+                
             </div>
           </div>
 
@@ -228,9 +231,11 @@
             <div class="filters" style="margin-left:auto; display:flex; gap:8px; align-items:center;">
               <div class="filter-item"><input type="text" id="rangeFrom" class="filter-input" placeholder="From (YYYY-MM-DD)" autocomplete="off" /></div>
               <div class="filter-item"><input type="text" id="rangeTo" class="filter-input" placeholder="To (YYYY-MM-DD)" autocomplete="off" /></div>
-              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>Crisis</option><option>High</option><option>Medium</option><option>Low</option></select></div>
               <div class="filter-item"><select id="filterCounselor" class="filter-select"><option>All Counselors</option></select></div>
               <div class="filter-item"><button class="btn ghost filter-reset" id="resetFilters">Reset</button></div>
+              <div class="filter-item"><button class="btn ghost" id="sortOrderBtn" title="Sort: Newest → Oldest">↓</button></div>
+              
             </div>
           </div>
 
@@ -239,9 +244,9 @@
               <table class="requests-table" id="appointmentsTable">
                 <thead>
                   <tr>
-                    <th><input id="selectAllAppointments" type="checkbox" /></th>
+                    
                     <th>Student</th>
-                    <th>Type</th>
+                    <th>Course</th>
                     <th>Date & Time</th>
                     <th>Counselor</th>
                     <th>Priority</th>
@@ -329,6 +334,8 @@
                 <span>Sort by Last Appointment:</span>
                 <button id="sortStudentsAsc" title="Sort Ascending" class="btn ghost" style="font-size:1.2rem;">&#8593;</button>
                 <button id="sortStudentsDesc" title="Sort Descending" class="btn ghost" style="font-size:1.2rem;">&#8595;</button>
+                <span style="margin-left:8px;">Sort alphabetically:</span>
+                <button id="sortStudentsAlphaToggle" title="Toggle alphabetical sort" class="btn ghost" style="font-size:1.0rem;">A→Z</button>
                 <button id="exportStudentsBtn" class="btn">Export</button>
               </div>
             </div>
@@ -397,6 +404,12 @@
                 <option>4th Year</option>
                 <option>5th+ Year</option>
               </select>
+              <select id="filterStudentSex" style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; width:140px;">
+                <option value="">All Sex</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
               <button id="clearStudentFilters" class="btn ghost" style="padding:0.4rem 0.6rem;">Clear</button>
             </div>
 
@@ -405,8 +418,9 @@
                 <thead>
                   <tr>
                     <th>Student</th>
-                    <th>Department</th>
-                    <th>Year Level</th>
+                    <th>Course</th>
+                      <th>Sex</th>
+                      <th>Year Level</th>
                     <th>Last Appointment</th>
                     <th>Sessions</th>
                   </tr>
@@ -505,6 +519,14 @@
                     </select>
                   </div>
                   <input id="addContact" placeholder="Contact number" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;" />
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <select id="addSex" style="padding:0.6rem; border:1px solid #e5e7eb; border-radius:6px;">
+                      <option value="">Select Sex</option>
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
                   <div style="font-size:0.9rem; color:#6b7280;">Password will default to the student's LAST NAME in uppercase.</div>
                 </div>
               </div>
@@ -638,6 +660,7 @@
             <h2>Reports</h2>
             <div class="page-actions">
               <button class="btn" id="printReportBtn" style="background:#10b981; color:#fff; margin-left:8px;">🖨️ Print Report</button>
+              <button class="btn" id="downloadPdfBtn" style="background:#2563eb; color:#fff; margin-left:8px;">⬇️ Download PDF</button>
             </div>
           </div>
 
@@ -703,6 +726,21 @@
                     </div>
                   </div>
                 </div>
+                  <!-- Appointments by Gender -->
+                  <div style="margin-top:16px;">
+                    <div class="card" style="padding:20px; display:flex; flex-direction:column; background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.08); border-radius:8px;">
+                      <div style="font-weight:600; font-size:14px; color:#1e293b; margin-bottom:2px;">Appointments by Gender</div>
+                      <div style="font-size:12px; color:#94a3b8; margin-bottom:14px;">Percentage of appointment requests by gender</div>
+                      <div style="display:flex; align-items:center; gap:16px; height:200px; width:100%; box-sizing:border-box;">
+                        <div style="width:160px; height:160px; display:flex; align-items:center; justify-content:center;">
+                          <canvas id="genderDonut" class="chart-canvas" aria-label="Gender distribution doughnut chart" style="max-width:160px; max-height:160px;"></canvas>
+                        </div>
+                        <div id="genderLegend" style="flex:1; display:flex; flex-direction:column; justify-content:center; padding-left:8px;">
+                          <!-- legend inserted by JS -->
+                        </div>
+                      </div>
+                    </div>
+                  </div>
               </div>
              </div>
         </div>
@@ -1029,8 +1067,10 @@
   <script src="../JS/view_toggle.js"></script>
   <script src="../JS/ui_modals.js"></script>
   <script src="../JS/admin_dashboard.js"></script>
+  <script src="../JS/archive_feature.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="../JS/reports_new.js"></script>
 </body>
 </html>
@@ -1135,6 +1175,10 @@
         <div class="detail-group">
           <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Contact:</label>
           <div id="studentModalContact" style="font-weight:600; color:#1f2937;">-</div>
+        </div>
+        <div class="detail-group">
+          <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Sex:</label>
+          <div id="studentModalSex" style="font-weight:600; color:#1f2937;">-</div>
         </div>
         <div class="detail-group">
           <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Sessions:</label>

@@ -251,7 +251,8 @@ const appointmentSchema = new mongoose.Schema({
   counselor: { type: String, default: null },
   refNumber: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
-  status: { type: String, default: 'Pending', enum: ['Pending', 'Booked', 'Cancelled', 'Completed'] }
+  status: { type: String, default: 'Pending', enum: ['Pending', 'Booked', 'Cancelled', 'Completed'] },
+  archived: { type: Boolean, default: false }
 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
@@ -285,6 +286,15 @@ const activityLogSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
+
+// Archived appointments schema: stores a snapshot of an appointment when archived
+const archivedAppointmentSchema = new mongoose.Schema({
+  originalAppointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
+  refNumber: { type: String },
+  snapshot: { type: mongoose.Schema.Types.Mixed },
+  archivedAt: { type: Date, default: Date.now }
+});
+const ArchivedAppointment = mongoose.model('ArchivedAppointment', archivedAppointmentSchema);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -697,7 +707,11 @@ function formatAppointmentData(data) {
     year: capitalizeWords(data.year),
     reason: data.reason ? data.reason.charAt(0).toUpperCase() + data.reason.slice(1) : '',
     urgency: capitalizeWords(data.urgency),
-    email: (data.email || '').toLowerCase()
+    email: (data.email || '').toLowerCase(),
+      // Preserve any provided sex/gender field; normalize to string
+      sex: (data.sex || data.gender || '') ? String(data.sex || data.gender || '').trim() : '',
+      // archived flag: allow truthy 'true' or boolean true, default false
+      archived: (data && (data.archived === true || String(data.archived).toLowerCase() === 'true')) ? true : false
   };
 }
 
@@ -1838,7 +1852,13 @@ app.post('/api/appointments/request', async (req, res) => {
       }
     }
     // Create appointment
-    const appt = new Appointment({
+    // Attempt to attach student sex/gender if available (long-term data consistency)
+    let studentRecord = null;
+    try {
+      studentRecord = await Student.findOne({ $or: [ { schoolId: studentid }, { email: email } ] }).lean();
+    } catch (e) { /* ignore lookup errors */ }
+
+    const apptPayload = {
       studentid,
       fname,
       mname,
@@ -1853,8 +1873,11 @@ app.post('/api/appointments/request', async (req, res) => {
       reason,
       urgency,
       refNumber,
-      status
-    });
+      status,
+      sex: (studentRecord && studentRecord.sex) ? studentRecord.sex : ''
+    };
+
+    const appt = new Appointment(apptPayload);
 
     try {
       await appt.save();
@@ -2011,6 +2034,14 @@ app.post('/api/appointments', async (req, res) => {
       }
     }
 
+    // If sex not provided in formatted data, try to lookup the student record and copy sex
+    try {
+      if ((!formattedData.sex || String(formattedData.sex).trim() === '') && (formattedData.studentid || formattedData.email)) {
+        const lookup = await Student.findOne({ $or: [ { schoolId: formattedData.studentid }, { email: formattedData.email } ] }).lean();
+        if (lookup && lookup.sex) formattedData.sex = lookup.sex;
+      }
+    } catch (e) { /* ignore lookup errors */ }
+
     const appt = new Appointment({ ...formattedData, refNumber: ref });
     await appt.save();
     // If appointment is created already approved/rescheduled, mirror into ApprovedSchedule
@@ -2070,6 +2101,7 @@ app.put('/api/appointments/:ref', async (req, res) => {
     if(body.date) update.date = formattedData.date || body.date;
     if(body.time) update.time = formattedData.time || body.time;
     if(body.counselor) update.counselor = body.counselor;
+    if(typeof body.archived !== 'undefined') update.archived = (body.archived === true || String(body.archived).toLowerCase() === 'true');
     if(Object.keys(update).length === 0) return res.status(400).json({ error: 'nothing to update' });
 
     console.log('Update data:', update);
@@ -2094,22 +2126,29 @@ app.put('/api/appointments/:ref', async (req, res) => {
 
     // PRE-CHECK: Prevent approving/rescheduling into an already-booked slot
     try {
-      const targetStatus = (update.status || (prior && prior.status) || '').toString();
-      const targetStatusLower = targetStatus.toLowerCase();
-      const targetDate = update.date || (prior && prior.date) || null;
-      const targetTime = update.time || (prior && prior.time) || null;
-      const willBeApproved = ['approved', 'rescheduled/approved', 'booked'].includes(targetStatusLower);
+      // If the incoming update only toggles `archived` (no status/date/time change),
+      // skip the approval/reschedule conflict pre-check. Archiving should not be
+      // blocked by existing approved slots.
+      if (!update.status && !update.date && !update.time) {
+        console.log('Skipping approval/reschedule conflict pre-check (archive-only update)');
+      } else {
+        const targetStatus = (update.status || (prior && prior.status) || '').toString();
+        const targetStatusLower = targetStatus.toLowerCase();
+        const targetDate = update.date || (prior && prior.date) || null;
+        const targetTime = update.time || (prior && prior.time) || null;
+        const willBeApproved = ['approved', 'rescheduled/approved', 'booked'].includes(targetStatusLower);
 
-      if (willBeApproved && targetDate && targetTime) {
-        const conflict = await Appointment.findOne({
-          date: targetDate,
-          time: targetTime,
-          status: { $in: ['Approved', 'rescheduled/approved', 'Booked'] },
-          $or: [ { refNumber: { $ne: ref } }, { _id: { $ne: prior && prior._id } } ]
-        }).lean();
-        if (conflict) {
-          console.warn('Conflict detected when approving/rescheduling:', { conflictRef: conflict.refNumber, targetDate, targetTime });
-          return res.status(409).json({ error: 'Time slot already booked', existingRef: conflict.refNumber });
+        if (willBeApproved && targetDate && targetTime) {
+          const conflict = await Appointment.findOne({
+            date: targetDate,
+            time: targetTime,
+            status: { $in: ['Approved', 'rescheduled/approved', 'Booked'] },
+            $or: [ { refNumber: { $ne: ref } }, { _id: { $ne: prior && prior._id } } ]
+          }).lean();
+          if (conflict) {
+            console.warn('Conflict detected when approving/rescheduling:', { conflictRef: conflict.refNumber, targetDate, targetTime });
+            return res.status(409).json({ error: 'Time slot already booked', existingRef: conflict.refNumber });
+          }
         }
       }
     } catch (e) {
@@ -2120,6 +2159,25 @@ app.put('/api/appointments/:ref', async (req, res) => {
     if(!appt) return res.status(404).json({ error: 'not found' });
     
     console.log('Updated appointment:', appt);
+
+    // Archive bookkeeping: persist a snapshot when marking archived, and remove snapshot when restoring
+    try {
+      if (typeof update.archived !== 'undefined') {
+        const becameArchived = update.archived === true && !(prior && prior.archived === true);
+        const becameRestored = update.archived === false && (prior && prior.archived === true);
+        if (becameArchived) {
+          try {
+            await ArchivedAppointment.create({ originalAppointmentId: appt._id, refNumber: appt.refNumber, snapshot: prior || appt });
+            console.log('Created archived snapshot for', appt.refNumber);
+          } catch (e) { console.error('Failed to create archived snapshot for', appt.refNumber, e); }
+        } else if (becameRestored) {
+          try {
+            await ArchivedAppointment.deleteMany({ refNumber: appt.refNumber });
+            console.log('Removed archived snapshot(s) for', appt.refNumber);
+          } catch (e) { console.error('Failed to remove archived snapshot for', appt.refNumber, e); }
+        }
+      }
+    } catch (e) { console.error('Archive bookkeeping error', e); }
 
     try{
       const priorStatus = (prior && prior.status || '').toLowerCase();
@@ -2286,18 +2344,53 @@ app.get('/api/appointments', async (req, res) => {
     if (isAdmin) {
       // Admin: return all appointments, optionally filter by ?counselor=username
       if (req.query && req.query.counselor) q.counselor = req.query.counselor;
+      // If archived query is explicitly provided, filter by it. (archived=true|false)
+      if (req.query && typeof req.query.archived !== 'undefined') {
+        const a = String(req.query.archived).toLowerCase();
+        if (a === 'true' || a === '1') q.archived = true;
+        else if (a === 'false' || a === '0') q.archived = false;
+      }
+      else {
+        // By default, do not include archived appointments in the "All" view.
+        // Use $ne:true so documents without an `archived` field are also returned.
+        q.archived = { $ne: true };
+      }
     } else if (isCounselor) {
       // Counselor: restrict to their username from cookie counselor_user
       const cUserPart = parts.find(p => p.startsWith('counselor_user='));
       const counselorUsername = cUserPart ? decodeURIComponent(cUserPart.split('=')[1]) : null;
       if (counselorUsername) q.counselor = counselorUsername;
       else return res.status(401).json({ error: 'unauthenticated' });
+      // Counselors may also request archived filter
+      if (req.query && typeof req.query.archived !== 'undefined') {
+        const a = String(req.query.archived).toLowerCase();
+        if (a === 'true' || a === '1') q.archived = true;
+        else if (a === 'false' || a === '0') q.archived = false;
+      } else {
+        // Counselors should also default to non-archived view unless requested.
+        q.archived = { $ne: true };
+      }
     } else {
       // Not authenticated
       return res.status(401).json({ error: 'unauthenticated' });
     }
+    console.log('[API] /api/appointments query:', q);
+    let docs = await Appointment.find(q).sort({ createdAt: -1 }).limit(200).lean();
 
-    const docs = await Appointment.find(q).sort({ createdAt: -1 }).limit(200).lean();
+    // Safe fallback: if filtered result is empty but DB contains appointments,
+    // return unfiltered results (helps recover if archived flag filtering unexpectedly hides all records).
+    if ((!docs || docs.length === 0) && (!req.query || typeof req.query.archived === 'undefined')) {
+      try {
+        const total = await Appointment.countDocuments();
+        if (total > 0) {
+          console.warn('[API] /api/appointments: filtered query returned 0 but DB has', total, 'appointments. Returning unfiltered list as fallback.');
+          docs = await Appointment.find({}).sort({ createdAt: -1 }).limit(200).lean();
+        }
+      } catch (e) {
+        console.warn('[API] fallback check failed', e);
+      }
+    }
+
     res.json({ appointments: docs });
   }catch(err){
     console.error(err);
@@ -2351,8 +2444,32 @@ app.post('/api/students', async (req, res) => {
 
     const {
       schoolId, firstName, middleName, lastName, suffix,
-      email, course, year, contact, password
+      email, course, year, contact, password, sex
     } = req.body || {};
+
+    // normalize name fields: title-case multi-word names (handle hyphens)
+    const normalize = (v) => {
+      if (!v && v !== '') return v;
+      const s = String(v || '').trim();
+      if (!s) return '';
+      return s.toLowerCase().split(/\s+/).map(part => {
+        return part.split('-').map(p => p.length ? (p.charAt(0).toUpperCase() + p.slice(1)) : p).join('-');
+      }).join(' ');
+    };
+
+    const normFirst = normalize(firstName);
+    const normLast = normalize(lastName);
+    // middle name stored as initial with period (e.g. 'A.') when provided
+    let normMiddle = '';
+    if (middleName && String(middleName).trim().length) {
+      const m = String(middleName).trim();
+      normMiddle = m.charAt(0).toUpperCase() + '.';
+    }
+    const normSuffix = suffix ? String(suffix).trim() : '';
+    const normCourse = course ? String(course).trim() : '';
+    const normYear = year ? String(year).trim() : '';
+    const normContact = contact ? String(contact).trim() : '';
+    const normEmail = email ? String(email).trim().toLowerCase() : '';
 
     if (!schoolId || !firstName || !lastName || !email) {
       return res.status(400).json({ error: 'missing required fields' });
@@ -2364,9 +2481,21 @@ app.post('/api/students', async (req, res) => {
     const pwd = (password && String(password).trim().length)
       ? password
       : (lastName && String(lastName).trim().length ? String(lastName).trim().toUpperCase() : (String(schoolId || '').trim() || 'CHANGEME'));
-    const s = new Student({ schoolId, firstName, middleName, lastName, suffix, email, course, year, contact, password: pwd });
+    const s = new Student({
+      schoolId: String(schoolId || '').trim(),
+      firstName: normFirst,
+      middleName: normMiddle,
+      lastName: normLast,
+      suffix: normSuffix,
+      email: normEmail,
+      course: normCourse,
+      year: normYear,
+      contact: normContact,
+      sex: sex || '',
+      password: pwd
+    });
     await s.save();
-    return res.json({ ok: true, student: { schoolId: s.schoolId, firstName: s.firstName, lastName: s.lastName, email: s.email, course: s.course, year: s.year, contact: s.contact, _id: s._id } });
+    return res.json({ ok: true, student: { schoolId: s.schoolId, firstName: s.firstName, lastName: s.lastName, email: s.email, course: s.course, year: s.year, contact: s.contact, sex: s.sex, _id: s._id } });
   } catch (err) {
     console.error('/api/students POST error', err);
     if (err && err.code === 11000) return res.status(409).json({ error: 'duplicate' });
@@ -2376,12 +2505,12 @@ app.post('/api/students', async (req, res) => {
 
 app.get('/api/students', async (req, res) => {
   try {
-    const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName suffix course year email contact').lean();
+    const students = await Student.find().sort({ firstName: 1, lastName: 1 }).select('schoolId firstName lastName middleName suffix course year email contact sex').lean();
     
     // Compute fullName for each student since lean() doesn't include virtuals
     const formattedStudents = students.map(s => ({
       ...s,
-      fullName: `${s.firstName} ${s.lastName}`
+      fullName: [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ')
     }));
     
     res.json({ students: formattedStudents || [] });

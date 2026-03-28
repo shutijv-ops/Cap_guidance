@@ -1171,6 +1171,37 @@ body::before {
   align-items: center;
 }
 
+/* ensure appointment rows allow absolute-positioned icons */
+#appointmentsTable tbody tr {
+  position: relative;
+}
+
+/* row archive icon button: black icon, white-on-hover */
+.row-archive-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #000; /* black icon */
+}
+.row-archive-btn svg { display: block; }
+.row-archive-btn:hover { background: #000; color: #fff; border-radius: 4px; }
+
+/* page-level archive icon styling */
+.archived-icon { color: #000; }
+.archived-icon:hover { background:#000; color:#fff; }
+
+/* Hide legacy checkbox column in appointments table (removed by JS) */
+#appointmentsTable input[type="checkbox"] { display: none !important; }
+#appointmentsTable th.select-col, #appointmentsTable td.select-cell { display: none !important; }
+
 /* buttons */
 .btn {
   padding: 8px 12px;

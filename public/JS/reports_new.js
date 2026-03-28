@@ -11,6 +11,7 @@ let monthlyBarChart = null;
 let urgencyLineChart = null;
 let collegeDonutChart = null;
 let courseDonutChart = null;
+let genderDonutChart = null;
 let reportsAppointments = [];
 
 // Course -> Department mapping (provided list)
@@ -184,7 +185,7 @@ function renderDepartmentChart(appointments) {
               label: (context) => {
                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                 const value = context.parsed;
-                const percentage = ((value / total) * 100).toFixed(1);
+                const percentage = total ? ((value / total) * 100).toFixed(2) : '0.00';
                 return `${value} appointments (${percentage}%)`;
               }
             },
@@ -205,9 +206,24 @@ function renderDepartmentChart(appointments) {
       const total = data.reduce((a, b) => a + b, 0) || 0;
       const legendEl = document.getElementById('departmentLegend');
       if (legendEl) {
+        const pcts = [];
+        if (total) {
+          let sum = 0;
+          for (let i = 0; i < labels.length; i++) {
+            const v = data[i] || 0;
+            const p = Number(((v / total) * 100).toFixed(2));
+            pcts.push(p);
+            sum += p;
+          }
+          const diff = Number((100 - sum).toFixed(2));
+          if (pcts.length) pcts[pcts.length - 1] = Number((pcts[pcts.length - 1] + diff).toFixed(2));
+        } else {
+          for (let i = 0; i < labels.length; i++) pcts.push(0);
+        }
+
         legendEl.innerHTML = labels.map((label, i) => {
           const value = data[i] || 0;
-          const pct = total ? Math.round((value / total) * 100) : 0;
+          const pct = pcts[i] != null ? pcts[i].toFixed(2) : '0.00';
           const color = colors[i] || '#ccc';
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
@@ -289,7 +305,7 @@ function renderCourseChart(appointments) {
               label: (context) => {
                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                 const value = context.parsed;
-                const percentage = ((value / total) * 100).toFixed(1);
+                const percentage = total ? ((value / total) * 100).toFixed(2) : '0.00';
                 return `${value} appointments (${percentage}%)`;
               }
             },
@@ -309,9 +325,24 @@ function renderCourseChart(appointments) {
       const total = data.reduce((a, b) => a + b, 0) || 0;
       const legendEl = document.getElementById('courseLegend');
       if (legendEl) {
+        const pcts = [];
+        if (total) {
+          let sum = 0;
+          for (let i = 0; i < labels.length; i++) {
+            const v = data[i] || 0;
+            const p = Number(((v / total) * 100).toFixed(2));
+            pcts.push(p);
+            sum += p;
+          }
+          const diff = Number((100 - sum).toFixed(2));
+          if (pcts.length) pcts[pcts.length - 1] = Number((pcts[pcts.length - 1] + diff).toFixed(2));
+        } else {
+          for (let i = 0; i < labels.length; i++) pcts.push(0);
+        }
+
         legendEl.innerHTML = labels.map((label, i) => {
           const value = data[i] || 0;
-          const pct = total ? Math.round((value / total) * 100) : 0;
+          const pct = pcts[i] != null ? pcts[i].toFixed(2) : '0.00';
           const color = colors[i] || '#ccc';
           return `
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
@@ -331,6 +362,105 @@ function renderCourseChart(appointments) {
   } catch (e) {
     console.error('[REPORTS] Course chart error:', e);
   }
+}
+
+// Render gender distribution chart (Male / Female / Other)
+function renderGenderChart(appointments) {
+  console.log('[REPORTS] Rendering gender chart');
+    // Count unique students so a student with multiple appointments counts once
+    const map = { Male: 0, Female: 0 };
+    try {
+      const seen = {};
+      (appointments || []).forEach(a => {
+        const key = String((a.studentid || a.studentId || a.schoolId || a.email || (a.fname && a.lname ? `${a.fname}|${a.lname}|${a.contact || ''}` : '')) || '').toLowerCase().trim();
+        if (!key) return; // skip if no identifiable key
+        if (seen[key]) return; // already counted
+        seen[key] = true;
+
+        const raw = a.sex ?? a.gender ?? (a.student && (a.student.sex ?? a.student.gender)) ?? '';
+        const g = String(raw).trim().toLowerCase();
+        if (!g) return; // ignore unknown/blank
+        // Check female first because 'female' contains substring 'male'
+        if (g === 'f' || g === 'female' || g.includes('female') || g === 'woman') map.Female++;
+        else if (g === 'm' || g === 'male' || g === 'man') map.Male++;
+        else return; // ignore other values
+      });
+    } catch (e) {
+      console.warn('[REPORTS] Gender unique-count failed', e);
+    }
+
+  const labels = ['Male', 'Female'];
+  const data = [map.Male, map.Female];
+  const colors = ['#60a5fa', '#f472b6'];
+
+  const canvas = document.getElementById('genderDonut');
+  if (!canvas) { console.warn('[REPORTS] Gender canvas not found'); return; }
+
+  if (genderDonutChart) { genderDonutChart.destroy(); genderDonutChart = null; }
+
+  try {
+    genderDonutChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0) || 0;
+                const value = context.parsed;
+                const pct = total ? ((value / total) * 100).toFixed(2) : '0.00';
+                return `${value} students (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Render simple legend
+    try {
+      const total = data.reduce((a, b) => a + b, 0) || 0;
+      const legendEl = document.getElementById('genderLegend');
+      if (legendEl) {
+        const pcts = [];
+        if (total) {
+          let sum = 0;
+          for (let i = 0; i < labels.length; i++) {
+            const v = data[i] || 0;
+            const p = Number(((v / total) * 100).toFixed(2));
+            pcts.push(p);
+            sum += p;
+          }
+          const diff = Number((100 - sum).toFixed(2));
+          if (pcts.length) pcts[pcts.length - 1] = Number((pcts[pcts.length - 1] + diff).toFixed(2));
+        } else {
+          for (let i = 0; i < labels.length; i++) pcts.push(0);
+        }
+
+        legendEl.innerHTML = labels.map((label, i) => {
+          const value = data[i] || 0;
+          const pct = pcts[i] != null ? pcts[i].toFixed(2) : '0.00';
+          const color = colors[i] || '#ccc';
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="width:12px; height:12px; background:${color}; border-radius:3px; display:inline-block;"></span>
+                <div style="color:#1e293b; font-weight:600; font-size:13px;">${label}</div>
+              </div>
+              <div style="color:#64748b; font-size:13px;">${pct}%</div>
+            </div>`;
+        }).join('');
+      }
+    } catch (e) { console.warn('[REPORTS] Gender legend render failed', e); }
+
+    try { window.genderChart = genderDonutChart; } catch(e){}
+    console.log('[REPORTS] ✅ Gender chart created');
+  } catch (e) { console.error('[REPORTS] Gender chart error:', e); }
 }
 
 // Initialize reports
@@ -412,6 +542,45 @@ async function initReports() {
     }
   } catch (e) {
     console.warn('[REPORTS] Appointments fetch failed:', e);
+  }
+
+  // If some appointments lack sex/gender, try to enrich from students list
+  try {
+    const needEnrich = (appointments || []).some(a => !((a.sex || a.gender) || (a.student && (a.student.sex || a.student.gender))));
+    if (needEnrich) {
+      try {
+        const studsRes = await fetch('/api/students', { credentials: 'include' });
+        if (studsRes && studsRes.ok) {
+          const studsData = await studsRes.json();
+          const students = studsData.students || [];
+          const byId = {};
+          const byEmail = {};
+          students.forEach(s => {
+            if (s.schoolId) byId[String(s.schoolId).toLowerCase()] = s;
+            if (s.email) byEmail[String(s.email).toLowerCase()] = s;
+          });
+
+          appointments.forEach(a => {
+            const hasSex = !!((a.sex || a.gender) || (a.student && (a.student.sex || a.student.gender)));
+            if (hasSex) return;
+            const sid = String(a.studentid || a.studentId || a.schoolId || '').toLowerCase();
+            const em = String(a.email || '').toLowerCase();
+            let s = null;
+            if (sid && byId[sid]) s = byId[sid];
+            else if (em && byEmail[em]) s = byEmail[em];
+            if (s && (s.sex || s.gender)) {
+              a.sex = s.sex || s.gender;
+            }
+          });
+          reportsAppointments = appointments;
+          console.log('[REPORTS] Merged student sex data into appointments');
+        }
+      } catch (e) {
+        console.warn('[REPORTS] Failed to fetch/merge students for gender enrichment', e);
+      }
+    }
+  } catch (e) {
+    console.warn('[REPORTS] Gender enrichment check failed', e);
   }
 
   const labels = months.map(m => m.label);
@@ -619,6 +788,7 @@ async function initReports() {
   if (appointments.length > 0) {
     renderDepartmentChart(appointments);
     renderCourseChart(appointments);
+    renderGenderChart(appointments);
   } else {
     console.warn('[REPORTS] No appointments for distribution charts');
   }
@@ -656,20 +826,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // Export
 window.initReports = initReports;
 
-// ===== PDF Export (print report) =====
-async function printReport() {
+// ===== Report export helpers =====
+function buildReportContent() {
   const monthCount = document.getElementById('reportMonthCount')?.textContent || '0';
   const avgSession = document.getElementById('reportAvgSession')?.textContent || '0';
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US');
 
-  // Capture chart images if available
+  // Capture chart images if available (monthly, urgency, department, course, gender)
   let barChartImage = '';
   let lineChartImage = '';
+  let departmentChartImage = '';
+  let courseChartImage = '';
+  let genderChartImage = '';
   try {
     if (window.monthlyChart && window.monthlyChart.canvas) barChartImage = window.monthlyChart.canvas.toDataURL('image/png');
     if (window.urgencyChart && window.urgencyChart.canvas) lineChartImage = window.urgencyChart.canvas.toDataURL('image/png');
+    if (window.departmentChart && window.departmentChart.canvas) departmentChartImage = window.departmentChart.canvas.toDataURL('image/png');
+    if (window.courseChart && window.courseChart.canvas) courseChartImage = window.courseChart.canvas.toDataURL('image/png');
+    if (window.genderChart && window.genderChart.canvas) genderChartImage = window.genderChart.canvas.toDataURL('image/png');
   } catch (e) { console.warn('[REPORTS] capture charts failed', e); }
 
   const source = (reportsAppointments && reportsAppointments.length) ? reportsAppointments : [];
@@ -697,15 +873,138 @@ async function printReport() {
   const mediumCount = source.filter(a => (a.urgency || '').includes('Medium')).length;
   const lowCount = source.filter(a => !(a.urgency || '').includes('Crisis') && !(a.urgency || '').includes('High') && !(a.urgency || '').includes('Medium')).length;
 
-  const crisisPercent = totalAppointments > 0 ? ((crisisCount / totalAppointments) * 100).toFixed(1) : 0;
-  const highPercent = totalAppointments > 0 ? ((highCount / totalAppointments) * 100).toFixed(1) : 0;
-  const mediumPercent = totalAppointments > 0 ? ((mediumCount / totalAppointments) * 100).toFixed(1) : 0;
-  const lowPercent = totalAppointments > 0 ? ((lowCount / totalAppointments) * 100).toFixed(1) : 0;
+  const urgencyCounts = [crisisCount, highCount, mediumCount, lowCount];
+  const urgencyLabels = ['Crisis', 'High', 'Medium', 'Low'];
+  const urgencyPcts = [];
+  if (totalAppointments > 0) {
+    let sum = 0;
+    for (let i = 0; i < urgencyCounts.length; i++) {
+      const v = urgencyCounts[i] || 0;
+      const p = Number(((v / totalAppointments) * 100).toFixed(2));
+      urgencyPcts.push(p);
+      sum += p;
+    }
+    const diff = Number((100 - sum).toFixed(2));
+    if (urgencyPcts.length) urgencyPcts[urgencyPcts.length - 1] = Number((urgencyPcts[urgencyPcts.length - 1] + diff).toFixed(2));
+  } else {
+    for (let i = 0; i < urgencyCounts.length; i++) urgencyPcts.push(0);
+  }
+  const crisisPercent = urgencyPcts[0];
+  const highPercent = urgencyPcts[1];
+  const mediumPercent = urgencyPcts[2];
+  const lowPercent = urgencyPcts[3];
+
+  // Gender counts (unique students — only Male and Female)
+  const genderMap = { Male: 0, Female: 0 };
+  try {
+    const seen = {};
+    (source || []).forEach(a => {
+      const key = String((a.studentid || a.studentId || a.schoolId || a.email || (a.fname && a.lname ? `${a.fname}|${a.lname}|${a.contact || ''}` : '')) || '').toLowerCase().trim();
+      if (!key) return;
+      if (seen[key]) return;
+      seen[key] = true;
+
+      const raw = a.sex ?? a.gender ?? (a.student && (a.student.sex ?? a.student.gender)) ?? '';
+      const g = String(raw).trim().toLowerCase();
+      if (!g) return; // ignore unknown/blank
+      if (g === 'f' || g === 'female' || g.includes('female') || g === 'woman') genderMap.Female++;
+      else if (g === 'm' || g === 'male' || g === 'man') genderMap.Male++;
+      else return; // ignore other values
+    });
+  } catch (e) { console.warn('[REPORTS] PDF gender unique-count failed', e); }
+
+  const maleCount = genderMap.Male;
+  const femaleCount = genderMap.Female;
+  const genderTotal = (maleCount + femaleCount) || 0;
+  let malePct = 0;
+  let femalePct = 0;
+  if (genderTotal > 0) {
+    malePct = Number(((maleCount / genderTotal) * 100).toFixed(2));
+    femalePct = Number((100 - malePct).toFixed(2));
+  }
+
+  // Department counts (map from course if department missing)
+  const deptMap = {};
+  try {
+    (source || []).forEach(apt => {
+      let dept = apt.department || apt.college || apt.schoolName || null;
+      if (!dept && apt.course) dept = mapCourseToDept(apt.course);
+      dept = dept || 'Unknown';
+      deptMap[dept] = (deptMap[dept] || 0) + 1;
+    });
+  } catch (e) { console.warn('[REPORTS] dept count failed', e); }
+  const deptLabels = Object.keys(deptMap);
+  const deptData = deptLabels.map(l => deptMap[l]);
+  const deptTotal = deptData.reduce((a,b)=>a+b,0) || 0;
+  const deptPcts = [];
+  if (deptTotal > 0) {
+    let s = 0;
+    for (let i=0;i<deptData.length;i++){ const v = deptData[i]||0; const p = Number(((v/deptTotal)*100).toFixed(2)); deptPcts.push(p); s+=p; }
+    const dRem = Number((100 - s).toFixed(2)); if (deptPcts.length) deptPcts[deptPcts.length-1] = Number((deptPcts[deptPcts.length-1] + dRem).toFixed(2));
+  } else { for (let i=0;i<deptData.length;i++) deptPcts.push(0); }
+
+  // Course counts (top 8 by frequency)
+  const courseMap = {};
+  try {
+    (source || []).forEach(apt => {
+      const course = (apt.course || apt.courseCode || 'Unknown');
+      courseMap[course] = (courseMap[course] || 0) + 1;
+    });
+  } catch (e) { console.warn('[REPORTS] course count failed', e); }
+  const sortedCourses = Object.entries(courseMap).sort((a,b)=>b[1]-a[1]);
+  const courseLabels = sortedCourses.slice(0,8).map(x=>x[0]);
+  const courseData = sortedCourses.slice(0,8).map(x=>x[1]);
+  const courseTotal = Object.values(courseMap).reduce((a,b)=>a+b,0) || 0;
+  const coursePcts = [];
+  if (courseTotal > 0) {
+    let s2 = 0;
+    for (let i=0;i<courseData.length;i++){ const v = courseData[i]||0; const p = Number(((v/courseTotal)*100).toFixed(2)); coursePcts.push(p); s2+=p; }
+    const cRem = Number((100 - s2).toFixed(2)); if (coursePcts.length) coursePcts[coursePcts.length-1] = Number((coursePcts[coursePcts.length-1] + cRem).toFixed(2));
+  } else { for (let i=0;i<courseData.length;i++) coursePcts.push(0); }
+
+  // Build small HTML snippets for department and course stats
+  const departmentStatsHtml = deptLabels.length ? (`<div class="stats-card"> <table class="stats-table" style="margin-top:8px;">
+    <thead><tr><th>Department</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>
+    <tbody>${deptLabels.map((lab,i)=>`<tr><td>${lab}</td><td style="text-align:right">${deptData[i]}</td><td style="text-align:right">${(deptPcts[i]||0).toFixed(2)}%</td></tr>`).join('')}</tbody></table> </div>`) : '<div style="color:#94a3b8;">No department data</div>';
+
+  const courseStatsHtml = courseLabels.length ? (`<div class="stats-card"> <table class="stats-table" style="margin-top:8px;">
+    <thead><tr><th>Course</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>
+    <tbody>${courseLabels.map((lab,i)=>`<tr><td>${lab}</td><td style="text-align:right">${courseData[i]}</td><td style="text-align:right">${(coursePcts[i]||0).toFixed(2)}%</td></tr>`).join('')}</tbody></table> </div>`) : '<div style="color:#94a3b8;">No course data</div>';
 
   // Build report HTML (kept compact but styled)
   const reportContent = `
     <div id="reportPDF" style="font-family: 'Inter', Arial, sans-serif; color: #111827; background:#fff; padding:20px;">
-      <div style="max-width:900px; margin:0 auto;">
+      <style>
+        .report-inner{max-width:1000px;margin:0 auto;padding:0 6px}
+        /* Use a stable two-column grid for chart + stats to avoid wrapping across pages */
+        .two-col{display:grid;grid-template-columns:0.62fr 0.38fr;gap:16px;align-items:start}
+        .chart-card{background:#fff;border:1px solid #e6eef8;padding:12px;border-radius:8px;text-align:center;min-height:200px}
+        .stats-card{background:#fff;padding:8px;border-radius:6px;border:1px solid #f1f5f9;overflow:auto;max-height:320px}
+        table.stats-table{width:100%;border-collapse:collapse;font-size:12px;word-break:break-word}
+        table.stats-table th, table.stats-table td{padding:6px;border-bottom:1px solid #eef2f7}
+        table.stats-table th{background:#f1f5f9;text-align:left}
+        img.chart-img{width:100%;height:auto;max-height:300px;display:block;margin:0 auto}
+
+        /* Print rules */
+        @media print{
+          /* Stack columns into single column for print */
+          .two-col{display:block}
+          .chart-card{page-break-inside:avoid;margin-bottom:6px}
+          .stats-card{width:100%;overflow:visible;max-height:none;margin-bottom:12px}
+          /* Force fixed table layout so counts and percentages don't wrap awkwardly */
+          table.stats-table{table-layout:fixed;font-size:11px}
+          table.stats-table thead th:first-child, table.stats-table tbody td:first-child{width:60%}
+          table.stats-table thead th:nth-child(2), table.stats-table tbody td:nth-child(2){width:20%; text-align:right}
+          table.stats-table thead th:nth-child(3), table.stats-table tbody td:nth-child(3){width:20%; text-align:right}
+          table.stats-table th, table.stats-table td{padding:4px}
+          .chart-img{max-height:170px}
+          /* Prevent section splitting */
+          .chart-card, .stats-card, .report-row{page-break-inside:avoid;break-inside:avoid}
+          .page-break{page-break-before:always}
+          body{color:#111827}
+        }
+      </style>
+      <div class="report-inner">
         <div style="border-bottom:3px solid #6366f1; padding-bottom:20px; margin-bottom:20px;">
           <h1 style="margin:0; font-size:24px; color:#0b1220;">Appointments Report</h1>
           <div style="color:#6b7280; font-size:13px; margin-top:6px;">Generated: ${dateStr} ${timeStr}</div>
@@ -736,7 +1035,32 @@ async function printReport() {
           </div>
         </div>
 
-        <div style="margin-bottom:20px;">
+        <div style="margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Department</h3>
+            <div style="display:flex; gap:12px; align-items:flex-start;">
+              <div style="flex:1; background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
+                  ${departmentChartImage ? `<img class="chart-img" src="${departmentChartImage}"/>` : '<div style="color:#6b7280;">Department chart not available</div>'}
+              </div>
+              <div style="width:45%;">
+                ${departmentStatsHtml}
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Course</h3>
+            <div style="display:flex; gap:12px; align-items:flex-start;">
+              <div style="flex:1; background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
+                ${courseChartImage ? `<img class="chart-img" src="${courseChartImage}"/>` : '<div style="color:#6b7280;">Course chart not available</div>'}
+              </div>
+              <div style="width:45%;">
+                ${courseStatsHtml}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-break" style="margin-bottom:20px;">
           <h2 style="font-size:16px; margin:0 0 8px 0;">Monthly Data Summary</h2>
           <table style="width:100%; border-collapse:collapse; font-size:13px;">
             <thead>
@@ -773,6 +1097,14 @@ async function printReport() {
             <div style="font-size:13px;">High: <strong>${highCount}</strong> (${highPercent}%)</div>
             <div style="font-size:13px;">Medium: <strong>${mediumCount}</strong> (${mediumPercent}%)</div>
             <div style="font-size:13px;">Low: <strong>${lowCount}</strong> (${lowPercent}%)</div>
+                <div style="font-size:13px; margin-top:8px;">Male: <strong>${maleCount}</strong> (${malePct}%)</div>
+                <div style="font-size:13px;">Female: <strong>${femaleCount}</strong> (${femalePct}%)</div>
+                <div style="margin-top:12px;">
+                  <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Gender</h3>
+                  <div style="background:#fff; border:1px solid #e6eef8; padding:8px; border-radius:8px; text-align:center;">
+                    ${genderChartImage ? `<img src="${genderChartImage}" style="max-width:100%; height:auto; max-height:160px;"/>` : '<div style="color:#6b7280;">Gender chart not available</div>'}
+                  </div>
+                </div>
           </div>
         </div>
 
@@ -780,8 +1112,66 @@ async function printReport() {
     </div>
   `;
 
+  // Return content and meta so callers can decide how to export
+  return { reportContent, dateStr };
+}
+
+// Print helper which builds the report and opens print dialog (popup or iframe fallback)
+function openPrintWindow(reportHtml) {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Appointments Report</title>
+      <style>body{font-family:Inter, Arial, sans-serif; color:#111827; margin:0; padding:20px;} img{max-width:100%; height:auto;}</style>
+      </head><body>${reportHtml}</body></html>`;
+
+  // Open a new tab/window and write the printable HTML into it.
+  // NOTE: some browsers treat the third arg inconsistently; avoid passing 'noopener' here
+  // because it can result in an about:blank tab that cannot be written to in some contexts.
+  const w = window.open('', '_blank');
+  console.debug('print: opened popup window', !!w, w);
+  if (w) {
+    try {
+      try { w.opener = null; } catch (_) {}
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => { setTimeout(() => { try { w.focus(); w.print(); } catch (e) { console.warn('Print failed', e); } }, 300); };
+      return;
+    } catch (e) {
+      console.warn('Popup print failed, falling back to iframe:', e);
+      try { w.close(); } catch(_){ }
+    }
+  }
+
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const idoc = iframe.contentWindow || iframe.contentDocument;
+    const doc = idoc.document || idoc;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(() => {
+      try { (iframe.contentWindow || iframe).focus(); (iframe.contentWindow || iframe).print(); } catch (e) { console.warn('Iframe print failed', e); alert('Printing failed — try Download PDF instead.'); }
+      setTimeout(() => { try { iframe.remove(); } catch (_) {} }, 500);
+    }, 500);
+  } catch (e) {
+    console.warn('Fallback iframe print failed', e);
+    alert('Unable to print. Please use the Download PDF button or enable popups for this site.');
+  }
+}
+
+// Download PDF helper: takes report HTML and date string for filename
+function runDownloadReportPdf(reportHtml, dateStr) {
+  console.debug('runDownloadReportPdf called', { dateStr });
   const element = document.createElement('div');
-  element.innerHTML = reportContent;
+  element.style.maxWidth = '900px';
+  element.style.margin = '0 auto';
+  element.innerHTML = reportHtml;
   document.body.appendChild(element);
 
   const opt = {
@@ -792,21 +1182,79 @@ async function printReport() {
     jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
   };
 
+  const run = () => {
+    try {
+      console.debug('Invoking html2pdf', { opt });
+      html2pdf().set(opt).from(element).save().finally(() => setTimeout(() => element.remove(), 500));
+    } catch (e) {
+      console.warn('html2pdf failed', e);
+      try { element.remove(); } catch(_){}
+      console.info('Falling back to print dialog for PDF export');
+      try { openPrintWindow(reportHtml); } catch (err) { console.error('Fallback print failed', err); alert('PDF generation failed and print fallback also failed.'); }
+    }
+  };
+
   if (typeof html2pdf === 'undefined') {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    script.onload = function() { html2pdf().set(opt).from(element).save(); setTimeout(() => element.remove(), 500); };
-    document.head.appendChild(script);
+    const localUrl = '/JS/html2pdf.bundle.min.js';
+    const cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    try {
+      fetch(localUrl, { method: 'HEAD', cache: 'no-store' }).then(resp => {
+        const script = document.createElement('script');
+        script.onload = () => { console.debug('Loaded PDF library from', script.src); run(); };
+        script.onerror = (err) => { console.error('Failed loading PDF script', err, script.src); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(e){ console.error('Fallback print failed', e); alert('Failed to load PDF library and print fallback failed.'); } };
+        if (resp && resp.ok) {
+          console.debug('Loading local html2pdf shim', localUrl);
+          script.src = localUrl;
+        } else {
+          console.debug('Local shim missing; loading CDN', cdnUrl);
+          script.src = cdnUrl;
+        }
+        document.head.appendChild(script);
+      }).catch((err) => {
+        console.warn('HEAD check for local shim failed, loading CDN', err);
+        const script = document.createElement('script');
+        script.src = cdnUrl;
+        script.onload = () => { console.debug('Loaded PDF library from CDN', cdnUrl); run(); };
+        script.onerror = (e) => { console.error('Failed loading CDN pdf script', e); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(err){ console.error('Fallback print failed', err); alert('Failed to load PDF library and print fallback failed.'); } };
+        document.head.appendChild(script);
+      });
+    } catch (e) {
+      console.warn('Error while attempting to load PDF library, falling back to CDN', e);
+      const script = document.createElement('script');
+      script.src = cdnUrl;
+      script.onload = () => { console.debug('Loaded PDF library from CDN', cdnUrl); run(); };
+      script.onerror = (err) => { console.error('Failed loading CDN pdf script', err); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(err){ console.error('Fallback print failed', err); alert('Failed to load PDF library and print fallback failed.'); } };
+      document.head.appendChild(script);
+    }
   } else {
-    html2pdf().set(opt).from(element).save();
-    setTimeout(() => element.remove(), 500);
+    console.debug('html2pdf already available, running');
+    run();
   }
 }
+
+// Expose global wrappers that build the report then call helpers
+window.printReport = function() {
+  try {
+    const { reportContent } = buildReportContent();
+    openPrintWindow(reportContent);
+  } catch (e) { console.error('printReport wrapper failed', e); alert('Print failed. See console for details.'); }
+};
+
+window.downloadReportPdf = function() {
+  try {
+    const { reportContent, dateStr } = buildReportContent();
+    runDownloadReportPdf(reportContent, dateStr);
+  } catch (e) { console.error('downloadReportPdf wrapper failed', e); alert('PDF download failed. See console for details.'); }
+};
 
 // Wire print button
 document.addEventListener('DOMContentLoaded', () => {
   const printBtn = document.getElementById('printReportBtn');
+  const downloadBtn = document.getElementById('downloadPdfBtn');
   if (printBtn) {
-    printBtn.addEventListener('click', printReport);
+    printBtn.addEventListener('click', () => { if (window.printReport) window.printReport(); });
+  }
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => { if (window.downloadReportPdf) window.downloadReportPdf(); });
   }
 });

@@ -694,10 +694,27 @@ function printReport() {
   const mediumCount = source.filter(a => (a.urgency || '').includes('Medium')).length;
   const lowCount = source.filter(a => !(a.urgency || '').includes('Crisis') && !(a.urgency || '').includes('High') && !(a.urgency || '').includes('Medium')).length;
   
-  const crisisPercent = totalAppointments > 0 ? ((crisisCount / totalAppointments) * 100).toFixed(1) : 0;
-  const highPercent = totalAppointments > 0 ? ((highCount / totalAppointments) * 100).toFixed(1) : 0;
-  const mediumPercent = totalAppointments > 0 ? ((mediumCount / totalAppointments) * 100).toFixed(1) : 0;
-  const lowPercent = totalAppointments > 0 ? ((lowCount / totalAppointments) * 100).toFixed(1) : 0;
+  let crisisPercent = 0, highPercent = 0, mediumPercent = 0, lowPercent = 0;
+  if (totalAppointments > 0) {
+    // compute raw percentages
+    const rawC = (crisisCount / totalAppointments) * 100;
+    const rawH = (highCount / totalAppointments) * 100;
+    const rawM = (mediumCount / totalAppointments) * 100;
+    // round first three to 2 decimals for display
+    const c = Number(rawC.toFixed(2));
+    const h = Number(rawH.toFixed(2));
+    const m = Number(rawM.toFixed(2));
+    // compute low as the remaining to ensure displayed percentages sum to 100.00
+    let l = 100 - (c + h + m);
+    // clamp small floating errors
+    if (l < 0 && l > -0.01) l = 0;
+    if (l > 100) l = 100;
+    // format to 2 decimals
+    crisisPercent = c.toFixed(2);
+    highPercent = h.toFixed(2);
+    mediumPercent = m.toFixed(2);
+    lowPercent = l.toFixed(2);
+  }
   
   // Build HTML for PDF
   const reportContent = `

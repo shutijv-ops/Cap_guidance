@@ -20,6 +20,11 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  sex: {
+    type: String,
+    enum: ['Male', 'Female', 'Other'],
+    default: ''
+  },
   suffix: {
     type: String,
     default: ''

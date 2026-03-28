@@ -166,7 +166,7 @@
                   <thead>
                     <tr>
                       <th>Student</th>
-                      <th>Type</th>
+                      <th>Course</th>
                       <th>Date</th>
                       <th>Priority</th>
                       <th>Status</th>
@@ -277,6 +277,7 @@
             <div class="page-actions">
               <button class="btn primary" id="listViewBtn" style="padding:0.5rem 1.5rem; background:#0a2342; color:#fff; border:none; border-radius:6px; cursor:pointer;">List View</button>
               <button class="btn" id="calendarViewBtn" style="padding:0.5rem 1.5rem; background:#e5e7eb; color:#374151; border:none; border-radius:6px; cursor:pointer;">Calendar View</button>
+              
             </div>
           </div>
 
@@ -294,9 +295,11 @@
             <div class="filters" style="margin-left:auto; display:flex; gap:8px; align-items:center;">
               <div class="filter-item"><input type="text" id="rangeFrom" class="filter-input" placeholder="From (YYYY-MM-DD)" autocomplete="off" /></div>
               <div class="filter-item"><input type="text" id="rangeTo" class="filter-input" placeholder="To (YYYY-MM-DD)" autocomplete="off" /></div>
-              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+              <div class="filter-item"><select id="filterPriority" class="filter-select"><option>All Priorities</option><option>Crisis</option><option>High</option><option>Medium</option><option>Low</option></select></div>
               <div class="filter-item"><select id="filterCounselor" class="filter-select"><option>All Counselors</option></select></div>
               <div class="filter-item"><button class="btn ghost filter-reset" id="resetFilters">Reset</button></div>
+              <div class="filter-item"><button class="btn ghost" id="sortOrderBtn" title="Sort: Newest → Oldest">↓</button></div>
+              
             </div>
           </div>
 
@@ -305,9 +308,9 @@
               <table class="requests-table" id="appointmentsTable">
                 <thead>
                   <tr>
-                    <th><input id="selectAllAppointments" type="checkbox" /></th>
+                    
                     <th>Student</th>
-                    <th>Type</th>
+                    <th>Course</th>
                     <th>Date & Time</th>
                     <th>Counselor</th>
                     <th>Priority</th>
@@ -394,6 +397,8 @@
                 <span>Sort by Last Appointment:</span>
                 <button id="sortStudentsAsc" title="Sort Ascending" class="btn ghost" style="font-size:1.2rem;">&#8593;</button>
                 <button id="sortStudentsDesc" title="Sort Descending" class="btn ghost" style="font-size:1.2rem;">&#8595;</button>
+                <span style="margin-left:8px;">Sort alphabetically:</span>
+                <button id="sortStudentsAlphaToggle" title="Toggle alphabetical sort" class="btn ghost" style="font-size:1.0rem;">A→Z</button>
               </div>
             </div>
 
@@ -442,6 +447,12 @@
                 <option>4th Year</option>
                 <option>5th+ Year</option>
               </select>
+              <select id="filterStudentSex" style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px; width:140px;">
+                <option value="">All Sex</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
               <button id="clearStudentFilters" class="btn ghost" style="padding:0.4rem 0.6rem;">Clear</button>
             </div>
 
@@ -450,7 +461,8 @@
                 <thead>
                   <tr>
                     <th>Student</th>
-                    <th>Department</th>
+                    <th>Course</th>
+                    <th>Sex</th>
                     <th>Year Level</th>
                     <th>Last Appointment</th>
                     <th>Sessions</th>
@@ -665,6 +677,7 @@
   </style>
 
   <script src="../JS/admin_dashboard.js"></script>
+  <script src="../JS/archive_feature.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="../JS/reports_new.js"></script>
@@ -751,6 +764,10 @@
             <div class="detail-group">
               <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Contact:</label>
               <div id="studentModalContact" style="font-weight:600; color:#1f2937;">-</div>
+            </div>
+            <div class="detail-group">
+              <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Sex:</label>
+              <div id="studentModalSex" style="font-weight:600; color:#1f2937;">-</div>
             </div>
             <div class="detail-group">
               <label style="font-size:0.85rem; color:#6b7280; margin-bottom:0.5rem;">Sessions:</label>
