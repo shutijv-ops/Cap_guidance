@@ -22,8 +22,7 @@ async function clearAndSeed() {
         course: 'BS in Hotel and Restaurant Management',
         year: '1st Year',
         contact: '09307667382',
-        email: 'sotillo09@gmail.com',
-        password: 'Sotillo'
+        email: 'sotillo09@gmail.com'
       },
       {
         schoolId: '25-A-01466',
@@ -34,8 +33,7 @@ async function clearAndSeed() {
         course: 'BS in Civil Engineering',
         year: '2nd Year',
         contact: '09123456789',
-        email: 'juan.delacruz@jrmsu.edu.ph',
-        password: 'Dela Cruz'
+        email: 'juan.delacruz@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01467',
@@ -46,8 +44,7 @@ async function clearAndSeed() {
         course: 'BS in Nursing',
         year: '3rd Year',
         contact: '09234567890',
-        email: 'maria.santos@jrmsu.edu.ph',
-        password: 'Santos'
+        email: 'maria.santos@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01468',
@@ -58,8 +55,7 @@ async function clearAndSeed() {
         course: 'BS in Computer Engineering',
         year: '4th Year',
         contact: '09345678901',
-        email: 'jose.reyes@jrmsu.edu.ph',
-        password: 'Reyes'
+        email: 'jose.reyes@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01469',
@@ -70,8 +66,7 @@ async function clearAndSeed() {
         course: 'Bachelor of Science in Education - English',
         year: '2nd Year',
         contact: '09456789012',
-        email: 'anna.garcia@jrmsu.edu.ph',
-        password: 'Garcia'
+        email: 'anna.garcia@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01470',
@@ -82,8 +77,7 @@ async function clearAndSeed() {
         course: 'BS in Accounting Information System',
         year: '1st Year',
         contact: '09567890123',
-        email: 'miguel.lopez@jrmsu.edu.ph',
-        password: 'Lopez'
+        email: 'miguel.lopez@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01471',
@@ -94,8 +88,7 @@ async function clearAndSeed() {
         course: 'BS in Business Administration - Marketing Management',
         year: '3rd Year',
         contact: '09678901234',
-        email: 'sofia.torres@jrmsu.edu.ph',
-        password: 'Torres'
+        email: 'sofia.torres@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01472',
@@ -106,8 +99,7 @@ async function clearAndSeed() {
         course: 'BS in Electrical Engineering',
         year: '4th Year',
         contact: '09789012345',
-        email: 'carlos.morales@jrmsu.edu.ph',
-        password: 'Morales'
+        email: 'carlos.morales@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01473',
@@ -118,8 +110,7 @@ async function clearAndSeed() {
         course: 'BS in Marine Engineering',
         year: '2nd Year',
         contact: '09890123456',
-        email: 'isabel.cruz@jrmsu.edu.ph',
-        password: 'Cruz'
+        email: 'isabel.cruz@jrmsu.edu.ph'
       },
       {
         schoolId: '25-A-01474',
@@ -130,17 +121,18 @@ async function clearAndSeed() {
         course: 'BS in Tourism Management',
         year: '1st Year',
         contact: '09901234567',
-        email: 'roberto.fernandez@jrmsu.edu.ph',
-        password: 'Fernandez'
+        email: 'roberto.fernandez@jrmsu.edu.ph'
       }
     ];
 
-    // Create students with .save() to trigger pre-save hooks for password hashing
+    // Create students: hash default password (last name) explicitly before saving
     const createdStudents = [];
     for (const studentData of sampleStudentsData) {
-      const student = new Student(studentData);
-      await student.save();
-      createdStudents.push(student);
+      const defaultPassword = (studentData.password || studentData.lastName || '').toString();
+      const hashed = await bcrypt.hash(defaultPassword, 10);
+      const s = new Student({ ...studentData, password: hashed });
+      await s.save();
+      createdStudents.push(s);
     }
 
     console.log(`✅ Successfully created ${createdStudents.length} sample students:\n`);
@@ -151,14 +143,9 @@ async function clearAndSeed() {
       console.log(`   Year: ${student.year}\n`);
     });
 
-    console.log('📝 LOGIN CREDENTIALS:');
-    console.log('─'.repeat(50));
-    console.log('School ID: 25-A-01465');
-    console.log('Password: Sotillo');
-    console.log('─'.repeat(50));
-    console.log('\nOr use any of the student credentials above.');
-    console.log('Password = Last Name (or Last Name with suffix if applicable)');
-    console.log('\n⚠️  On first login, students will be prompted to change their password.\n');
+    console.log('📝 LOGIN NOTES:');
+    console.log('Default passwords are set to each student\'s LAST NAME (uppercase) and are stored hashed.');
+    console.log('Students will be prompted to change their password on first login.');
 
   } catch (error) {
     console.error('❌ Error:', error.message);

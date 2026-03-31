@@ -505,6 +505,20 @@ let adminFirstName = '';
 let adminMiddleName = '';
 let adminLastName = '';
 
+// Cookie Secure suffix for production
+const COOKIE_SEC = (process.env.NODE_ENV === 'production') ? '; Secure' : '';
+
+// Hash default in-memory admin password if it's plaintext to avoid leaking plaintext in memory
+(async () => {
+  try {
+    if (typeof adminPassword === 'string' && !adminPassword.startsWith('$2')) {
+      const h = await bcrypt.hash(adminPassword, 10);
+      adminPassword = h;
+      console.log('[ADMIN] Hashed default admin password in memory');
+    }
+  } catch (e) { /* ignore */ }
+})();
+
 // Parse DEFAULT_COUNSELOR.name into components (simple heuristic)
 (function parseDefaultName() {
   try {
@@ -862,11 +876,11 @@ app.post('/api/admin/login', async (req, res) => {
         console.log('[ADMIN DEBUG] login attempt for', username.trim(), 'found DB admin, pwMatch:', pwMatch);
         if (pwMatch) {
           res.setHeader('Set-Cookie', [
-            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
-            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; SameSite=Lax`,
+            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax' + COOKIE_SEC,
+            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; HttpOnly; SameSite=Lax${COOKIE_SEC}`,
             // clear any counselor cookies from prior sessions
-            'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
-            'counselor_user=; Path=/; Max-Age=0'
+            'counselor_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+            'counselor_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC
           ]);
           (async () => {
             try {
@@ -885,10 +899,10 @@ app.post('/api/admin/login', async (req, res) => {
     const allowedUsername = (adminUsername || DEFAULT_COUNSELOR.username).toLowerCase();
     if(username.trim().toLowerCase() === allowedUsername && password === adminPassword){
       res.setHeader('Set-Cookie', [
-        'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
-        `admin_user=${encodeURIComponent(adminUsername || DEFAULT_COUNSELOR.username)}; Path=/; SameSite=Lax`,
-        'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
-        'counselor_user=; Path=/; Max-Age=0'
+        'admin_auth=1; Path=/; HttpOnly; SameSite=Lax' + COOKIE_SEC,
+        `admin_user=${encodeURIComponent(adminUsername || DEFAULT_COUNSELOR.username)}; Path=/; HttpOnly; SameSite=Lax${COOKIE_SEC}`,
+        'counselor_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+        'counselor_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC
       ]);
       (async () => {
         try {
@@ -920,8 +934,8 @@ app.post('/api/login', async (req, res) => {
         const pwMatch = await bcrypt.compare(password, adminDoc.password).catch(()=>false);
         if (pwMatch) {
           res.setHeader('Set-Cookie', [
-            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax',
-            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; SameSite=Lax`
+            'admin_auth=1; Path=/; HttpOnly; SameSite=Lax' + COOKIE_SEC,
+            `admin_user=${encodeURIComponent(adminDoc.username)}; Path=/; HttpOnly; SameSite=Lax${COOKIE_SEC}`
           ]);
           (async () => {
             try { await ActivityLog.create({ actor: adminDoc.username, action: 'login', details: `Admin logged in` }); } catch (e) {}
@@ -934,7 +948,7 @@ app.post('/api/login', async (req, res) => {
     // Fallback in-memory admin check
     const allowedUsername = (adminUsername || DEFAULT_COUNSELOR.username).toLowerCase();
     if(username.trim().toLowerCase() === allowedUsername && password === adminPassword){
-      res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly; SameSite=Lax');
+      res.setHeader('Set-Cookie', 'admin_auth=1; Path=/; HttpOnly; SameSite=Lax' + COOKIE_SEC);
       (async () => { try { await ActivityLog.create({ actor: adminUsername || DEFAULT_COUNSELOR.username, action: 'login', details: `Admin logged in` }); } catch (e) {} })();
       const computedName = (adminFirstName || adminLastName) ? `${adminFirstName || ''}${adminMiddleName ? ' ' + adminMiddleName : ''}${adminLastName ? ' ' + adminLastName : ''}`.trim() : DEFAULT_COUNSELOR.name;
       return res.json({ ok: true, isAdmin: true, isCounselor: false, user: { username: adminUsername || DEFAULT_COUNSELOR.username, name: computedName, role: DEFAULT_COUNSELOR.role || 'Admin' } });
@@ -960,11 +974,11 @@ app.post('/api/login', async (req, res) => {
             return res.status(403).json({ error: 'counselor not active' });
           }
           res.setHeader('Set-Cookie', [
-            'counselor_auth=1; Path=/; HttpOnly; SameSite=Lax',
-            `counselor_user=${encodeURIComponent(c.username)}; Path=/; SameSite=Lax`,
+            'counselor_auth=1; Path=/; HttpOnly; SameSite=Lax' + COOKIE_SEC,
+            `counselor_user=${encodeURIComponent(c.username)}; Path=/; HttpOnly; SameSite=Lax${COOKIE_SEC}`,
             // clear any admin cookies from prior sessions
-            'admin_auth=; Path=/; HttpOnly; Max-Age=0',
-            'admin_user=; Path=/; Max-Age=0'
+            'admin_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+            'admin_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC
           ]);
           (async () => { try { await ActivityLog.create({ actor: c.username, action: 'login', details: `Counselor logged in` }); } catch (e) {} })();
           return res.json({ ok: true, isAdmin: false, isCounselor: true, user: { username: c.username, name: `${c.firstName || ''}${c.middleName ? ' ' + c.middleName : ''}${c.lastName ? ' ' + c.lastName : ''}`.trim(), role: c.role || 'Counselor' } });
@@ -1018,8 +1032,9 @@ app.post('/api/admin/change-password', async (req, res) => {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Update password
-    adminPassword = newPassword;
+    // Update password (always store hashed)
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    adminPassword = hashedNew;
 
     // log change-password activity
     (async () => {
@@ -1287,8 +1302,8 @@ app.post('/api/counselor/change-username', async (req, res) => {
     counselor.username = newUsername;
     await counselor.save();
 
-    // Set cookie so client sees updated username
-    res.setHeader('Set-Cookie', `counselor_user=${encodeURIComponent(newUsername)}; Path=/; SameSite=Lax`);
+    // Set cookie so client sees updated username (HttpOnly)
+    res.setHeader('Set-Cookie', `counselor_user=${encodeURIComponent(newUsername)}; Path=/; HttpOnly; SameSite=Lax${COOKIE_SEC}`);
 
     return res.json({ ok: true, message: 'Username changed', username: newUsername });
   } catch (error) {
@@ -1656,10 +1671,10 @@ app.post('/api/admin/thresholds', async (req, res) => {
 });
 
 app.post('/api/admin/logout', (req, res) => {
-  // clear cookies
+  // clear cookies (include HttpOnly on cleared user cookies)
   res.setHeader('Set-Cookie', [
-    'admin_auth=; Path=/; HttpOnly; Max-Age=0',
-    'admin_user=; Path=/; Max-Age=0'
+    'admin_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+    'admin_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC
   ]);
   // record logout activity
   (async () => {
@@ -1682,12 +1697,12 @@ app.post('/api/logout', (req, res) => {
     if (adminUserPart) actor = decodeURIComponent(adminUserPart.split('=')[1]);
     else if (counselorUserPart) actor = decodeURIComponent(counselorUserPart.split('=')[1]);
 
-    // clear both admin and counselor cookies
+    // clear both admin and counselor cookies (ensure HttpOnly on user cookies)
     res.setHeader('Set-Cookie', [
-      'admin_auth=; Path=/; HttpOnly; Max-Age=0',
-      'admin_user=; Path=/; Max-Age=0',
-      'counselor_auth=; Path=/; HttpOnly; Max-Age=0',
-      'counselor_user=; Path=/; Max-Age=0'
+      'admin_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+      'admin_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+      'counselor_auth=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC,
+      'counselor_user=; Path=/; HttpOnly; Max-Age=0' + COOKIE_SEC
     ]);
 
     (async () => {
@@ -3121,7 +3136,8 @@ app.post('/api/referrals', async (req, res) => {
       studentAware: body.studentAware || 'Not Sure',
       concernTypes: Array.isArray(body.concernTypes) ? body.concernTypes : (body.concernTypes ? [body.concernTypes] : []),
       description: body.description,
-      urgency: body.urgency === 'Urgent' ? 'Urgent' : 'Normal',
+      // Accept legacy values and map to new Low/High labels
+      urgency: (body.urgency === 'Urgent' || body.urgency === 'High') ? 'High' : 'Low',
       submittedByStudentId: body.referrerStudentId
     });
 

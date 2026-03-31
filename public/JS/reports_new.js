@@ -463,6 +463,59 @@ function renderGenderChart(appointments) {
   } catch (e) { console.error('[REPORTS] Gender chart error:', e); }
 }
 
+  // Clean department chart renderer (kept separate to avoid accidental merges)
+  function renderDepartmentChartClean(appointments) {
+    const deptMap = {};
+    (appointments || []).forEach(apt => {
+      let dept = apt.department || apt.college || apt.schoolName || null;
+      if (!dept && apt.course) dept = mapCourseToDept(apt.course);
+      dept = dept || 'Unknown';
+      deptMap[dept] = (deptMap[dept] || 0) + 1;
+    });
+
+    const labels = Object.keys(deptMap);
+    const data = Object.values(deptMap);
+    const colors = labels.map((_, i) => DISTRIBUTION_COLORS[i % DISTRIBUTION_COLORS.length]);
+
+    const canvas = document.getElementById('departmentDonut');
+    if (!canvas) return;
+    if (collegeDonutChart) { collegeDonutChart.destroy(); collegeDonutChart = null; }
+
+    try {
+      collegeDonutChart = new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 2 }] },
+        options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}, datalabels:{display:false}} }
+      });
+      try { window.departmentChart = collegeDonutChart; } catch(e){}
+    } catch (e) { console.warn('[REPORTS] renderDepartmentChartClean failed', e); }
+  }
+
+  // Clean course chart renderer
+  function renderCourseChartClean(appointments) {
+    const courseMap = {};
+    (appointments || []).forEach(apt => {
+      const course = apt.course || apt.courseCode || 'Unknown';
+      courseMap[course] = (courseMap[course] || 0) + 1;
+    });
+    const sorted = Object.entries(courseMap).sort((a,b)=>b[1]-a[1]);
+    const labels = sorted.slice(0,8).map(x=>x[0]);
+    const data = sorted.slice(0,8).map(x=>x[1]);
+    const colors = labels.map((_,i)=>DISTRIBUTION_COLORS[i % DISTRIBUTION_COLORS.length]);
+
+    const canvas = document.getElementById('courseDonut');
+    if (!canvas) return;
+    if (courseDonutChart) { courseDonutChart.destroy(); courseDonutChart = null; }
+
+    try {
+      courseDonutChart = new Chart(canvas, {
+        type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:'#fff', borderWidth:2 }] },
+        options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}, datalabels:{display:false}} }
+      });
+      try { window.courseChart = courseDonutChart; } catch(e){}
+    } catch (e) { console.warn('[REPORTS] renderCourseChartClean failed', e); }
+  }
+
 // Initialize reports
 async function initReports() {
   console.log('[REPORTS] initReports called');
@@ -784,10 +837,10 @@ async function initReports() {
     console.error('[REPORTS] Line chart error:', e);
   }
 
-  // Render distribution charts
+  // Render distribution charts using clean renderers
   if (appointments.length > 0) {
-    renderDepartmentChart(appointments);
-    renderCourseChart(appointments);
+    renderDepartmentChartClean(appointments);
+    renderCourseChartClean(appointments);
     renderGenderChart(appointments);
   } else {
     console.warn('[REPORTS] No appointments for distribution charts');
@@ -834,18 +887,22 @@ function buildReportContent() {
   const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US');
 
-  // Capture chart images if available (monthly, urgency, department, course, gender)
+  // Capture chart images if available (include department/course charts)
   let barChartImage = '';
   let lineChartImage = '';
+  let genderChartImage = '';
   let departmentChartImage = '';
   let courseChartImage = '';
-  let genderChartImage = '';
   try {
     if (window.monthlyChart && window.monthlyChart.canvas) barChartImage = window.monthlyChart.canvas.toDataURL('image/png');
     if (window.urgencyChart && window.urgencyChart.canvas) lineChartImage = window.urgencyChart.canvas.toDataURL('image/png');
-    if (window.departmentChart && window.departmentChart.canvas) departmentChartImage = window.departmentChart.canvas.toDataURL('image/png');
-    if (window.courseChart && window.courseChart.canvas) courseChartImage = window.courseChart.canvas.toDataURL('image/png');
     if (window.genderChart && window.genderChart.canvas) genderChartImage = window.genderChart.canvas.toDataURL('image/png');
+    // department chart may be exposed as window.departmentChart or collegeDonutChart
+    if (window.departmentChart && window.departmentChart.canvas) departmentChartImage = window.departmentChart.canvas.toDataURL('image/png');
+    if (!departmentChartImage && typeof collegeDonutChart !== 'undefined' && collegeDonutChart && collegeDonutChart.canvas) departmentChartImage = collegeDonutChart.canvas.toDataURL('image/png');
+    // course chart may be exposed as window.courseChart or courseDonutChart
+    if (window.courseChart && window.courseChart.canvas) courseChartImage = window.courseChart.canvas.toDataURL('image/png');
+    if (!courseChartImage && typeof courseDonutChart !== 'undefined' && courseDonutChart && courseDonutChart.canvas) courseChartImage = courseDonutChart.canvas.toDataURL('image/png');
   } catch (e) { console.warn('[REPORTS] capture charts failed', e); }
 
   const source = (reportsAppointments && reportsAppointments.length) ? reportsAppointments : [];
@@ -943,6 +1000,10 @@ function buildReportContent() {
     const dRem = Number((100 - s).toFixed(2)); if (deptPcts.length) deptPcts[deptPcts.length-1] = Number((deptPcts[deptPcts.length-1] + dRem).toFixed(2));
   } else { for (let i=0;i<deptData.length;i++) deptPcts.push(0); }
 
+  const departmentStatsHtml = deptLabels.length ? (`<div class="stats-card"> <table class="stats-table" style="margin-top:8px;">
+    <thead><tr><th>Department</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>
+    <tbody>${deptLabels.map((lab,i)=>`<tr><td>${lab}</td><td style="text-align:right">${deptData[i]}</td><td style="text-align:right">${(deptPcts[i]||0).toFixed(2)}%</td></tr>`).join('')}</tbody></table> </div>`) : '<div style="color:#94a3b8;">No department data</div>';
+
   // Course counts (top 8 by frequency)
   const courseMap = {};
   try {
@@ -962,157 +1023,229 @@ function buildReportContent() {
     const cRem = Number((100 - s2).toFixed(2)); if (coursePcts.length) coursePcts[coursePcts.length-1] = Number((coursePcts[coursePcts.length-1] + cRem).toFixed(2));
   } else { for (let i=0;i<courseData.length;i++) coursePcts.push(0); }
 
-  // Build small HTML snippets for department and course stats
-  const departmentStatsHtml = deptLabels.length ? (`<div class="stats-card"> <table class="stats-table" style="margin-top:8px;">
-    <thead><tr><th>Department</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>
-    <tbody>${deptLabels.map((lab,i)=>`<tr><td>${lab}</td><td style="text-align:right">${deptData[i]}</td><td style="text-align:right">${(deptPcts[i]||0).toFixed(2)}%</td></tr>`).join('')}</tbody></table> </div>`) : '<div style="color:#94a3b8;">No department data</div>';
+  let courseStatsHtml = '';
+  if (courseLabels.length) {
+    const half = Math.ceil(courseLabels.length / 2);
+    const col1 = courseLabels.slice(0, half);
+    const col2 = courseLabels.slice(half);
+    const buildCol = (cols) => {
+      return `<table class="stats-table" style="margin-top:8px; font-size:12px;">` +
+        `<thead><tr><th>Course</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>` +
+        `<tbody>` + cols.map(lab => {
+          const idx = courseLabels.indexOf(lab);
+          const cnt = courseData[idx] || 0;
+          const pct = (coursePcts[idx] || 0).toFixed(2);
+          return `<tr><td style="word-break:break-word">${lab}</td><td style="text-align:right">${cnt}</td><td style="text-align:right">${pct}%</td></tr>`;
+        }).join('') +
+        `</tbody></table>`;
+    };
 
-  const courseStatsHtml = courseLabels.length ? (`<div class="stats-card"> <table class="stats-table" style="margin-top:8px;">
-    <thead><tr><th>Course</th><th style="text-align:right">Count</th><th style="text-align:right">%</th></tr></thead>
-    <tbody>${courseLabels.map((lab,i)=>`<tr><td>${lab}</td><td style="text-align:right">${courseData[i]}</td><td style="text-align:right">${(coursePcts[i]||0).toFixed(2)}%</td></tr>`).join('')}</tbody></table> </div>`) : '<div style="color:#94a3b8;">No course data</div>';
+    courseStatsHtml = `
+      <div class="stats-card course-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start;">
+        <div>${buildCol(col1)}</div>
+        <div>${buildCol(col2)}</div>
+      </div>`;
+  } else {
+    courseStatsHtml = '<div style="color:#94a3b8;">No course data</div>';
+  }
 
-  // Build report HTML (kept compact but styled)
-  const reportContent = `
-    <div id="reportPDF" style="font-family: 'Inter', Arial, sans-serif; color: #111827; background:#fff; padding:20px;">
-      <style>
-        .report-inner{max-width:1000px;margin:0 auto;padding:0 6px}
-        /* Use a stable two-column grid for chart + stats to avoid wrapping across pages */
-        .two-col{display:grid;grid-template-columns:0.62fr 0.38fr;gap:16px;align-items:start}
-        .chart-card{background:#fff;border:1px solid #e6eef8;padding:12px;border-radius:8px;text-align:center;min-height:200px}
-        .stats-card{background:#fff;padding:8px;border-radius:6px;border:1px solid #f1f5f9;overflow:auto;max-height:320px}
-        table.stats-table{width:100%;border-collapse:collapse;font-size:12px;word-break:break-word}
-        table.stats-table th, table.stats-table td{padding:6px;border-bottom:1px solid #eef2f7}
-        table.stats-table th{background:#f1f5f9;text-align:left}
-        img.chart-img{width:100%;height:auto;max-height:300px;display:block;margin:0 auto}
+  // Build a strict, validated report layout per specifications
+  // Helper: sanitize and dedupe stats
+  const addStat = (list, label, value, opts = {}) => {
+    if (label == null) return;
+    const cleanLabel = String(label).trim();
+    if (!cleanLabel) return;
+    // prevent duplicates by label
+    if (list.some(s => s.label === cleanLabel)) return;
+    // normalize value
+    let val = value;
+    if (val === null || typeof val === 'undefined') return;
+    if (typeof val === 'number' && !isFinite(val)) return;
+    if (typeof val === 'string') val = val.trim();
+    list.push(Object.assign({ label: cleanLabel, value: val }, opts));
+  };
 
-        /* Print rules */
-        @media print{
-          /* Stack columns into single column for print */
-          .two-col{display:block}
-          .chart-card{page-break-inside:avoid;margin-bottom:6px}
-          .stats-card{width:100%;overflow:visible;max-height:none;margin-bottom:12px}
-          /* Force fixed table layout so counts and percentages don't wrap awkwardly */
-          table.stats-table{table-layout:fixed;font-size:11px}
-          table.stats-table thead th:first-child, table.stats-table tbody td:first-child{width:60%}
-          table.stats-table thead th:nth-child(2), table.stats-table tbody td:nth-child(2){width:20%; text-align:right}
-          table.stats-table thead th:nth-child(3), table.stats-table tbody td:nth-child(3){width:20%; text-align:right}
-          table.stats-table th, table.stats-table td{padding:4px}
-          .chart-img{max-height:170px}
-          /* Prevent section splitting */
-          .chart-card, .stats-card, .report-row{page-break-inside:avoid;break-inside:avoid}
-          .page-break{page-break-before:always}
-          body{color:#111827}
-        }
-      </style>
-      <div class="report-inner">
-        <div style="border-bottom:3px solid #6366f1; padding-bottom:20px; margin-bottom:20px;">
-          <h1 style="margin:0; font-size:24px; color:#0b1220;">Appointments Report</h1>
-          <div style="color:#6b7280; font-size:13px; margin-top:6px;">Generated: ${dateStr} ${timeStr}</div>
-        </div>
+  const stats = [];
+  // Primary stats (unique, validated)
+  addStat(stats, 'Total Appointments', totalAppointments);
+  addStat(stats, 'This Month', monthCount);
+  addStat(stats, 'Avg Sessions / Month', avgSession);
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px;">
-          <div style="background:#f8fafc; padding:12px; border-radius:8px;">
-            <div style="font-size:12px; color:#6b7280;">This Month</div>
-            <div style="font-size:20px; font-weight:700;">${monthCount}</div>
-          </div>
-          <div style="background:#f8fafc; padding:12px; border-radius:8px;">
-            <div style="font-size:12px; color:#6b7280;">Avg. Sessions / Month</div>
-            <div style="font-size:20px; font-weight:700;">${avgSession}</div>
-          </div>
-        </div>
+  // Status counts (ensure unique labels)
+  try {
+    const statusMap = {};
+    (source || []).forEach(a => {
+      const s = (a.status || a.state || a.statusText || '').toString().trim();
+      if (!s) return;
+      const key = s.toLowerCase();
+      statusMap[key] = statusMap[key] || { label: s, count: 0 };
+      statusMap[key].count++;
+    });
+    // Add common statuses in preferred order if present
+    ['completed','pending','cancelled','missed'].forEach(k => {
+      if (statusMap[k]) addStat(stats, statusMap[k].label, statusMap[k].count);
+    });
+    // Add any remaining statuses
+    Object.keys(statusMap).forEach(k => { if (!['completed','pending','cancelled','missed'].includes(k)) addStat(stats, statusMap[k].label, statusMap[k].count); });
+  } catch (e) { console.warn('[REPORTS] status aggregation failed', e); }
 
-        <div style="margin-bottom:20px;">
-          <h2 style="font-size:16px; margin:0 0 8px 0;">Monthly Appointments Trend</h2>
-          <div style="background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
-            ${barChartImage ? `<img src="${barChartImage}" style="max-width:100%; height:auto; max-height:300px;"/>` : '<div style="color:#6b7280;">Bar chart not available</div>'}
-          </div>
-        </div>
+  // Gender percentages (add once)
+  if (genderTotal > 0) {
+    addStat(stats, 'Male (%)', `${malePct.toFixed ? malePct.toFixed(2) : malePct}%`);
+    addStat(stats, 'Female (%)', `${femalePct.toFixed ? femalePct.toFixed(2) : femalePct}%`);
+  }
 
-        <div style="margin-bottom:20px;">
-          <h2 style="font-size:16px; margin:0 0 8px 0;">Urgency Trend Analysis</h2>
-          <div style="background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
-            ${lineChartImage ? `<img src="${lineChartImage}" style="max-width:100%; height:auto; max-height:300px;"/>` : '<div style="color:#6b7280;">Line chart not available</div>'}
-          </div>
-        </div>
+  // Ensure no undefined/null/duplicate entries are present
+  const safeStats = stats.filter(s => s && s.label && (typeof s.value !== 'undefined' && s.value !== null));
 
-        <div style="margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <div>
-            <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Department</h3>
-            <div style="display:flex; gap:12px; align-items:flex-start;">
-              <div style="flex:1; background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
-                  ${departmentChartImage ? `<img class="chart-img" src="${departmentChartImage}"/>` : '<div style="color:#6b7280;">Department chart not available</div>'}
-              </div>
-              <div style="width:45%;">
-                ${departmentStatsHtml}
-              </div>
+  // Render summary grid (max 4 per row, responsive)
+  const renderStatsGrid = (items) => {
+    const cards = items.map(item => {
+      return `
+        <div class="stat-card" style="flex:1 1 calc(25% - 12px); min-width:160px; box-sizing:border-box; padding:14px; background:#fff; border:1px solid #e6eef8; border-radius:8px; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+          <div style="font-size:12px; color:#6b7280;">${item.label}</div>
+          <div style="font-size:20px; font-weight:800; color:#0b1220; word-break:break-word;">${item.value}</div>
+        </div>`;
+    }).join('');
+    return `<div class="stats-grid" style="display:flex; flex-wrap:wrap; gap:16px; align-items:stretch;">${cards}</div>`;
+  };
+
+  // Chart block renderer ensures charts are centered, bounded, and maintain aspect ratio
+  // aspect should be a string like '16/9' or '4/3'
+  // title, imgSrc, aspect, maxWidth, maxHeight
+  const renderChartBlock = (title, imgSrc, aspect = '16/9', maxWidth = 500, maxHeight = 300) => {
+    const containerStyle = 'page-break-inside:avoid; padding:16px; border:1px solid #e6eef8; border-radius:8px; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,0.04);';
+    const viewportStyle = `width:100%; max-width:${maxWidth}px; aspect-ratio:${aspect}; max-height:${maxHeight}px; display:flex; align-items:center; justify-content:center; overflow:hidden;`;
+    const imgStyle = 'width:100%; height:100%; object-fit:contain;';
+
+    if (!imgSrc) {
+      return `
+        <div style="margin-bottom:24px; ${containerStyle}">
+          <h3 style="font-size:15px; margin:0 0 8px 0; text-align:center;">${title}</h3>
+          <div style="display:flex; justify-content:center; padding:12px;">
+            <div style="${viewportStyle}; border-radius:6px; border:1px dashed #eaf2fb; display:flex; align-items:center; justify-content:center;">
+              <div style="color:#94a3b8; font-size:13px;">Chart not available</div>
             </div>
           </div>
-          <div>
-            <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Course</h3>
-            <div style="display:flex; gap:12px; align-items:flex-start;">
-              <div style="flex:1; background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px; text-align:center;">
-                ${courseChartImage ? `<img class="chart-img" src="${courseChartImage}"/>` : '<div style="color:#6b7280;">Course chart not available</div>'}
-              </div>
-              <div style="width:45%;">
-                ${courseStatsHtml}
-              </div>
-            </div>
+        </div>`;
+    }
+
+    return `
+      <div style="margin-bottom:24px; ${containerStyle}">
+        <h3 style="font-size:15px; margin:0 0 8px 0; text-align:center;">${title}</h3>
+        <div style="display:flex; justify-content:center; padding:12px;">
+          <div style="${viewportStyle}">
+            <img src="${imgSrc}" style="${imgStyle}; max-width:500px; max-height:300px;" />
           </div>
         </div>
+      </div>`;
+  };
 
-        <div class="page-break" style="margin-bottom:20px;">
-          <h2 style="font-size:16px; margin:0 0 8px 0;">Monthly Data Summary</h2>
-          <table style="width:100%; border-collapse:collapse; font-size:13px;">
+  // Render charts section: if single chart center it; if multiple, use 2-column grid
+  const renderChartsSection = (charts) => {
+    const valid = (charts || []).filter(c => c && c.src);
+    const entries = charts || [];
+    if (!entries.length) return '';
+    if (entries.length === 1) {
+      const c = entries[0];
+      return `<section style="margin-bottom:28px; display:flex; justify-content:center;">${renderChartBlock(c.title, c.src, c.aspect || '16/9', c.maxWidth || 500, c.maxHeight || 300)}</section>`;
+    }
+    // multiple charts: 2-column grid
+    const items = entries.map(c => `<div style="display:flex; flex-direction:column;">${renderChartBlock(c.title, c.src, c.aspect || '16/9', c.maxWidth || 500, c.maxHeight || 300)}</div>`).join('');
+    return `<section style="margin-bottom:28px;"><div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start;">${items}</div></section>`;
+  };
+
+  // Table renderer for monthly summary with alternating rows
+  const renderMonthsTable = (monthsArr) => {
+    return `
+      <div style="page-break-inside:avoid;">
+        <h3 style="font-size:15px; margin:0 0 8px 0;">Monthly Data Summary</h3>
+        <div style="overflow:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12px;">
             <thead>
               <tr>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">Month</th>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">Total</th>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">Crisis</th>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">High</th>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">Medium</th>
-                <th style="text-align:left; padding:8px; background:#6366f1; color:#fff;">Low</th>
+                <th style="text-align:left; padding:8px; background:#f1f5f9; color:#0b1220;">Month</th>
+                <th style="text-align:right; padding:8px; background:#f1f5f9; color:#0b1220;">Total</th>
+                <th style="text-align:right; padding:8px; background:#f1f5f9; color:#0b1220;">Crisis</th>
+                <th style="text-align:right; padding:8px; background:#f1f5f9; color:#0b1220;">High</th>
+                <th style="text-align:right; padding:8px; background:#f1f5f9; color:#0b1220;">Medium</th>
+                <th style="text-align:right; padding:8px; background:#f1f5f9; color:#0b1220;">Low</th>
               </tr>
             </thead>
             <tbody>
-              ${months.map((m, idx) => {
-                const bgColor = idx % 2 === 0 ? '#fff' : '#f9fafb';
-                return `<tr style="background: ${bgColor};">
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"><strong>${m.label}</strong></td>
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.total || 0}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Crisis || 0}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.High || 0}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Medium || 0}</td>
-                  <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${m.urgencies.Low || 0}</td>
+              ${monthsArr.map((m, idx) => {
+                const bg = idx % 2 === 0 ? '#ffffff' : '#fbfdff';
+                return `<tr style="background:${bg};">
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6;">${m.label}</td>
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6; text-align:right;">${m.total || 0}</td>
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6; text-align:right;">${m.urgencies.Crisis || 0}</td>
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6; text-align:right;">${m.urgencies.High || 0}</td>
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6; text-align:right;">${m.urgencies.Medium || 0}</td>
+                  <td style="padding:10px; border-bottom:1px solid #eef2f6; text-align:right;">${m.urgencies.Low || 0}</td>
                 </tr>`;
               }).join('')}
             </tbody>
           </table>
         </div>
+      </div>`;
+  };
 
-        <div style="margin-bottom:20px;">
-          <h2 style="font-size:16px; margin:0 0 8px 0;">Key Metrics</h2>
-          <div style="background:#f9fafb; padding:12px; border-radius:8px;">
-            <div style="font-size:13px;">Total Appointments: <strong>${totalAppointments}</strong></div>
-            <div style="font-size:13px;">Crisis: <strong>${crisisCount}</strong> (${crisisPercent}%)</div>
-            <div style="font-size:13px;">High: <strong>${highCount}</strong> (${highPercent}%)</div>
-            <div style="font-size:13px;">Medium: <strong>${mediumCount}</strong> (${mediumPercent}%)</div>
-            <div style="font-size:13px;">Low: <strong>${lowCount}</strong> (${lowPercent}%)</div>
-                <div style="font-size:13px; margin-top:8px;">Male: <strong>${maleCount}</strong> (${malePct}%)</div>
-                <div style="font-size:13px;">Female: <strong>${femaleCount}</strong> (${femalePct}%)</div>
-                <div style="margin-top:12px;">
-                  <h3 style="font-size:14px; margin:0 0 8px 0;">Appointments by Gender</h3>
-                  <div style="background:#fff; border:1px solid #e6eef8; padding:8px; border-radius:8px; text-align:center;">
-                    ${genderChartImage ? `<img src="${genderChartImage}" style="max-width:100%; height:auto; max-height:160px;"/>` : '<div style="color:#6b7280;">Gender chart not available</div>'}
-                  </div>
-                </div>
+  const css = `
+    <style>
+      @media print { .stat-card { page-break-inside: avoid; break-inside: avoid; } .no-break { page-break-inside: avoid; break-inside: avoid; } }
+    </style>`;
+
+  const reportContent = `
+    <div id="reportPDF" style="font-family: 'Inter', Arial, sans-serif; color:#0b1220; background:#ffffff; padding:24px;">
+      <div style="max-width:900px; margin:0 auto;">
+        ${css}
+        <!-- Header -->
+        <header style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+          <div style="width:48px; height:48px; display:flex; align-items:center; justify-content:center;">
+            <!-- optional logo placeholder -->
+            <img src="/images/GUIDANCE%20LOGO.png" alt="logo" style="width:40px; height:40px; object-fit:cover; border-radius:6px;" onerror="this.style.display='none'" />
           </div>
-        </div>
+          <div style="flex:1;">
+            <h1 style="margin:0; font-size:22px;">Appointments Report</h1>
+            <div style="color:#6b7280; font-size:12px; margin-top:4px;">Generated: ${dateStr} ${timeStr}</div>
+          </div>
+        </header>
+        <hr style="border:none; height:1px; background:#e6eef8; margin-bottom:24px;" />
+
+        <!-- Summary Stats -->
+        <section style="margin-bottom:28px;">
+          ${renderStatsGrid(safeStats)}
+        </section>
+
+        <!-- Charts Section -->
+        ${renderChartsSection([
+          { title: 'Monthly Appointments Trend', src: barChartImage, aspect: '16/9' },
+          { title: 'Urgency Trend Analysis', src: lineChartImage, aspect: '16/9' },
+          { title: 'Appointments by Department', src: departmentChartImage, aspect: '1/1', maxWidth: 320, maxHeight: 240 },
+          { title: 'Appointments by Course', src: courseChartImage, aspect: '1/1', maxWidth: 320, maxHeight: 240 },
+          { title: 'Appointments by Gender', src: genderChartImage, aspect: '1/1', maxWidth: 320, maxHeight: 240 }
+        ])}
+
+        <!-- Department & Course Statistics (tables only, no duplicate charts) -->
+        <section style="margin-bottom:28px; display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start;">
+          <div style="page-break-inside:avoid;">
+            <h3 style="font-size:15px; margin:0 0 8px 0; text-align:left;">Appointments by Department (Breakdown)</h3>
+            <div style="background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px;">${departmentStatsHtml}</div>
+          </div>
+          <div style="page-break-inside:avoid;">
+            <h3 style="font-size:15px; margin:0 0 8px 0; text-align:left;">Appointments by Course (Top)</h3>
+            <div style="background:#fff; border:1px solid #e6eef8; padding:12px; border-radius:8px;">${courseStatsHtml}</div>
+          </div>
+        </section>
+
+        <!-- Table Section -->
+        <section style="margin-bottom:28px;">
+          ${renderMonthsTable(months)}
+        </section>
 
       </div>
-    </div>
-  `;
+    </div>`;
 
-  // Return content and meta so callers can decide how to export
   return { reportContent, dateStr };
 }
 
@@ -1166,70 +1299,90 @@ function openPrintWindow(reportHtml) {
 }
 
 // Download PDF helper: takes report HTML and date string for filename
-function runDownloadReportPdf(reportHtml, dateStr) {
-  console.debug('runDownloadReportPdf called', { dateStr });
+function downloadReportPdfImpl(reportHtml, dateStr) {
+  console.log('[REPORTS] downloadReportPdfImpl called');
   const element = document.createElement('div');
   element.style.maxWidth = '900px';
   element.style.margin = '0 auto';
   element.innerHTML = reportHtml;
   document.body.appendChild(element);
+  console.log('[REPORTS] report HTML appended to DOM for PDF generation');
+
+  // Try to clone visible legend DOMs into the printable report so html2pdf captures labels/percentages
+  try {
+    const insertLegendIntoReport = (sectionTitle, legendId) => {
+      try {
+        const liveLegend = document.getElementById(legendId);
+        if (!liveLegend) return;
+        const headers = element.querySelectorAll('h3');
+        let target = null;
+        headers.forEach(h => { if (h.textContent && h.textContent.trim().toLowerCase().includes(sectionTitle.toLowerCase())) target = h; });
+        if (!target) return;
+        let container = target.nextElementSibling || target.parentElement;
+        const legendClone = document.createElement('div');
+        legendClone.className = 'pdf-legend';
+        legendClone.style.cssText = 'margin-top:8px; padding:6px; background:transparent;';
+        legendClone.innerHTML = liveLegend.innerHTML;
+        const img = container.querySelector && container.querySelector('img.chart-img');
+        if (img && img.parentNode) img.parentNode.insertBefore(legendClone, img.nextSibling);
+        else container.appendChild(legendClone);
+      } catch (e) { /* non-fatal */ }
+    };
+
+    insertLegendIntoReport('Appointments by Department', 'departmentLegend');
+    insertLegendIntoReport('Appointments by Course', 'courseLegend');
+    insertLegendIntoReport('Appointments by Gender', 'genderLegend');
+    console.log('[REPORTS] legend cloning attempted');
+  } catch (e) { console.warn('Legend cloning failed', e); }
 
   const opt = {
     margin: 10,
     filename: `Appointments-Report-${dateStr.replace(/\s+/g, '-')}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2 },
+    // keep scale conservative to avoid excessive memory/CPU usage
+    html2canvas: { scale: Math.min(1.5, window.devicePixelRatio || 1) },
     jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
   };
 
   const run = () => {
     try {
-      console.debug('Invoking html2pdf', { opt });
-      html2pdf().set(opt).from(element).save().finally(() => setTimeout(() => element.remove(), 500));
+      console.log('[REPORTS] Running html2pdf now');
+      html2pdf().set(opt).from(element).save().then(()=>{
+        console.log('[REPORTS] html2pdf save finished');
+        setTimeout(() => { try { element.remove(); } catch(_){} }, 500);
+      }).catch(err => {
+        console.warn('[REPORTS] html2pdf save error', err);
+        try { element.remove(); } catch(_){}
+        alert('PDF generation failed. You can use the Print button and choose "Save as PDF".');
+      });
     } catch (e) {
       console.warn('html2pdf failed', e);
-      try { element.remove(); } catch(_){}
-      console.info('Falling back to print dialog for PDF export');
-      try { openPrintWindow(reportHtml); } catch (err) { console.error('Fallback print failed', err); alert('PDF generation failed and print fallback also failed.'); }
+      element.remove();
+      alert('PDF generation failed. You can use the Print button and choose "Save as PDF".');
     }
   };
 
   if (typeof html2pdf === 'undefined') {
     const localUrl = '/JS/html2pdf.bundle.min.js';
     const cdnUrl = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    try {
-      fetch(localUrl, { method: 'HEAD', cache: 'no-store' }).then(resp => {
-        const script = document.createElement('script');
-        script.onload = () => { console.debug('Loaded PDF library from', script.src); run(); };
-        script.onerror = (err) => { console.error('Failed loading PDF script', err, script.src); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(e){ console.error('Fallback print failed', e); alert('Failed to load PDF library and print fallback failed.'); } };
-        if (resp && resp.ok) {
-          console.debug('Loading local html2pdf shim', localUrl);
-          script.src = localUrl;
-        } else {
-          console.debug('Local shim missing; loading CDN', cdnUrl);
-          script.src = cdnUrl;
-        }
-        document.head.appendChild(script);
-      }).catch((err) => {
-        console.warn('HEAD check for local shim failed, loading CDN', err);
-        const script = document.createElement('script');
-        script.src = cdnUrl;
-        script.onload = () => { console.debug('Loaded PDF library from CDN', cdnUrl); run(); };
-        script.onerror = (e) => { console.error('Failed loading CDN pdf script', e); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(err){ console.error('Fallback print failed', err); alert('Failed to load PDF library and print fallback failed.'); } };
-        document.head.appendChild(script);
-      });
-    } catch (e) {
-      console.warn('Error while attempting to load PDF library, falling back to CDN', e);
-      const script = document.createElement('script');
-      script.src = cdnUrl;
-      script.onload = () => { console.debug('Loaded PDF library from CDN', cdnUrl); run(); };
-      script.onerror = (err) => { console.error('Failed loading CDN pdf script', err); try { element.remove(); } catch(_){}; console.info('Falling back to print dialog for PDF export'); try { openPrintWindow(reportHtml); } catch(err){ console.error('Fallback print failed', err); alert('Failed to load PDF library and print fallback failed.'); } };
-      document.head.appendChild(script);
-    }
-  } else {
-    console.debug('html2pdf already available, running');
-    run();
-  }
+    // Try to load local script first by inserting a <script> tag directly. Avoid doing HEAD requests to the server.
+    const loadScript = (src, onload, onerror) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = onload;
+      s.onerror = onerror;
+      document.head.appendChild(s);
+    };
+
+    let triedCdn = false;
+    loadScript(localUrl, () => { console.log('[REPORTS] html2pdf script loaded (local).'); run(); }, () => {
+      console.warn('[REPORTS] html2pdf local load failed, falling back to CDN');
+      if (triedCdn) { element.remove(); alert('Failed to load PDF library. Use Print instead.'); return; }
+      triedCdn = true;
+      loadScript(cdnUrl, () => { console.log('[REPORTS] html2pdf script loaded (cdn).'); run(); }, () => { console.error('[REPORTS] html2pdf CDN load failed'); element.remove(); alert('Failed to load PDF library. Use Print instead.'); });
+    });
+  } else run();
 }
 
 // Expose global wrappers that build the report then call helpers
@@ -1242,8 +1395,10 @@ window.printReport = function() {
 
 window.downloadReportPdf = function() {
   try {
+    console.log('[REPORTS] downloadReportPdf wrapper called');
     const { reportContent, dateStr } = buildReportContent();
-    runDownloadReportPdf(reportContent, dateStr);
+    console.log('[REPORTS] Built report content, invoking downloadReportPdf');
+    downloadReportPdfImpl(reportContent, dateStr);
   } catch (e) { console.error('downloadReportPdf wrapper failed', e); alert('PDF download failed. See console for details.'); }
 };
 

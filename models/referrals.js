@@ -17,7 +17,7 @@ const referralSchema = new mongoose.Schema({
   // Concern
   concernTypes: { type: [String], default: [] },
   description: { type: String, maxlength: 500 },
-  urgency: { type: String, enum: ['Normal','Urgent'], default: 'Normal' },
+  urgency: { type: String, enum: ['Low','High'], default: 'Low' },
 
   // Workflow
   status: { type: String, enum: ['Pending','Reviewed','Action Taken','Cancelled'], default: 'Pending' },

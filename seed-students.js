@@ -167,10 +167,9 @@ async function seedDatabase() {
     console.log(`Successfully created ${created.length} sample students:`);
     created.forEach(student => {
       console.log(`  - ${student.schoolId}: ${student.fullName} (${student.email})`);
-      console.log(`    Default Password: ${student.lastName.toUpperCase()}`);
     });
-    
-    console.log('\nStudents can log in with their School ID and their Last Name as password.');
+
+    console.log('\nStudents can log in with their School ID; default password is set to the student\'s LAST NAME (uppercase) but is stored hashed.');
     console.log('On first login, they will be prompted to change their password.');
 
   } catch (error) {

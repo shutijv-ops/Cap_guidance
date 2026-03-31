@@ -25,7 +25,7 @@ async function seedReferrals() {
       studentAware: 'Not Sure',
       concernTypes: ['Mental Health'],
       description: 'This is a seeded test referral. Please ignore in production.',
-      urgency: 'Normal',
+      urgency: 'Low',
       status: 'Pending',
       counselorNotes: '',
       submittedByStudentId: 'TS001'

@@ -1152,6 +1152,16 @@ body::before {
   color: #374151;
 }
 
+/* Prevent legend blocks from overflowing and overlapping nearby charts */
+#departmentLegend, #courseLegend, #genderLegend {
+  min-width: 0; /* allow flex children to shrink */
+  flex: 1 1 0;
+  max-height: 160px; /* fit beside the donut without exceeding card height */
+  overflow-y: auto; /* scroll if too many items */
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+
 /* page header and actions */
 .page-header {
   display: flex;

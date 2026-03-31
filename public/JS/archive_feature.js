@@ -52,10 +52,24 @@
             else alert(`Archive failed: ${r.status} ${txt || ''}`);
             return;
           }
-          // remove row from DOM or refresh table
-          tr.remove();
-          // update pill count if present
-          const pill = document.querySelector('#tabArchived .pill'); if (pill) pill.textContent = Math.max(0, (parseInt(pill.textContent||'0',10) + 1));
+          // Prefer to trigger the app's table refresh if available so all
+          // related UI state (counts, pagination) stays consistent.
+          try {
+            if (typeof loadRemoteData === 'function' && typeof populateAppointmentsTable === 'function') {
+              await loadRemoteData();
+              try { populateAppointmentsTable(); } catch (e) { console.warn('populateAppointmentsTable failed', e); }
+            } else {
+              // fallback: remove this row and update archived pill
+              tr.remove();
+              const pill = document.querySelector('#tabArchived .pill'); if (pill) pill.textContent = Math.max(0, (parseInt(pill.textContent||'0',10) + 1));
+            }
+          } catch (e) {
+            // if anything goes wrong, fallback to simple row removal
+            console.warn('archive refresh failed, falling back to row removal', e);
+            try { tr.remove(); } catch (er) { /* ignore */ }
+          }
+          // emit an event for other parts of the app to react to
+          try { document.dispatchEvent(new CustomEvent('appointment:archived', { detail: { ref } })); } catch (e) { /* ignore */ }
         } catch (err) { console.error('archive failed', err); if (typeof showActionModal === 'function') showActionModal('Archive failed. See console for details.'); else alert('Archive failed. See console for details.'); }
       });
 
